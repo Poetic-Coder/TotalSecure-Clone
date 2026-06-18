@@ -1,0 +1,118 @@
+{{!-- <html lang='en'>
+  <head>
+    <meta charset='UTF-8' />
+    <meta http-equiv='X-UA-Compatible' content='IE=edge' />
+    <meta name='viewport' content='width=device-width, initial-scale=1.0' />
+    <title>Transaction Receipt</title>
+  </head>
+  <body>
+
+    <div style='width: 100%; max-width: 600px; margin: 0 auto;'>
+      <div style='background-color: #f5f5f5; padding: 20px;'>
+        <div style='background-color: #fff; padding: 20px;'>
+          <div style='text-align: center;'>
+            <img
+              src='https://res.cloudinary.com/dx0nauane/image'
+              alt='logo'
+              style='width: 100px; height: 100px;'
+            />
+          </div>
+          <h1 style='text-align: center; margin: 0;'>
+            Transaction Receipt
+          </h1>
+          <p style='text-align: center; margin: 0;'>
+            Hello {{name}},<br>
+            Thanks for using our service. Find below the details of your transaction.
+          </p>
+
+          <div style='margin-top: 20px;'>
+            <p style='margin: 0;'>
+              <strong>Transaction ID:</strong>
+              {{transactionId}}
+            </p>
+            <p style='margin: 0;'>
+              <strong>Transaction Type:</strong>
+              {{transactionType}}
+            </p>
+            <p style='margin: 0;'>
+              <strong>Transaction Amount:</strong>
+              {{transactionAmount}}
+            </p>
+            <p style='margin: 0;'>
+              <strong>Transaction Date:</strong>
+              {{transactionDate}}
+            </p>
+
+            <p style='margin: 0;'>
+              <strong>Transaction Description:</strong>
+              {{transactionDescription}}
+            </p>
+
+            <p style='margin: 0;'>
+              <strong>Transaction Reference:</strong>
+              {{transactionReference}}
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html> --}}
+
+<html lang='en'>
+  <head>
+    <meta charset='UTF-8' />
+    <meta name='viewport' content='width=device-width, initial-scale=1.0' />
+    <title>Transaction Receipt</title>
+    <style>
+      body { font-family: 'Arial', sans-serif; background-color: #eaeaea;
+      margin: 0; padding: 0; } .email-container { max-width: 600px; margin: 40px
+      auto; background-color: #ffffff; border: 1px solid #dddddd; border-radius:
+      8px; overflow: hidden; } .email-header { background-color: #0046ad; color:
+      #ffffff; padding: 20px; text-align: center; } .email-header img { width:
+      120px; height: auto; } .email-header h1 { margin: 0; font-size: 24px; }
+      .email-body { padding: 20px; line-height: 1.5; } .email-body p { margin:
+      10px 0; } .email-body p strong { color: #333333; } .transaction-detail {
+      background-color: #f9f9f9; padding: 15px; margin: 20px 0; border-left: 4px
+      solid #0046ad; } .footer { text-align: center; padding: 10px; font-size:
+      12px; color: #777777; }
+    </style>
+  </head>
+  <body>
+    <div class='email-container'>
+      <div class='email-header'>
+        <img
+          src='https://res.cloudinary.com/dkb3vq7ai/image/upload/v1705972444/moolaLogo_c6nlzk.png'
+          alt='Company Logo'
+        />
+        <h1>Transaction Receipt</h1>
+      </div>
+      <div class='email-body'>
+        <p>Hello <strong>{{name}}</strong>,</p>
+        <p>Thanks for using our service. Find below the details of your
+          transaction:</p>
+        <div class='transaction-detail'>
+          <p><strong>Transaction ID:</strong> {{transactionId}}</p>
+          <p><strong>Transaction Type:</strong> {{type}}</p>
+          <p><strong>Transaction Amount:</strong> {{amount}}</p>
+          <p><strong>Transaction Date:</strong> {{date}}</p>
+          <p><strong>Transaction Description:</strong>
+            {{transactionDescription}}</p>
+          <p><strong>Recipient Name:</strong>
+            {{recipientName}}</p>
+          <p><strong>Transaction Reference:</strong>
+            {{reference}}</p>
+            <p><strong>Token Code:</strong>
+            {{tokenCode}}</p>
+            <p><strong>Token Units:</strong>
+            {{amountOfPower}}</p>
+            <p><strong>Customer Name:</strong>
+            {{customerName}}</p>
+            <p><strong>Customer Address:</strong>
+            {{customerAddress}}</p>
+        </div>
+        <p class='footer'>This is an automated message, please do not reply.</p>
+      </div>
+    </div>
+  </body>
+</html>

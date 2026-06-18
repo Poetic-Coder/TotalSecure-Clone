@@ -1,0 +1,832 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-1.1.x","debian-openssl-3.0.x"]
+  previewFeatures = ["interactiveTransactions"]
+}
+
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================
+// ENUMS
+// ==================
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum Currency {
+  NGN
+  USD
+  GBP
+  EUR
+  SAR 
+}
+
+enum VerificationStatus {
+  NOT_VERIFIED
+  PENDING
+  APPROVED
+  DECLINED
+}
+
+enum IdentificationCardType {
+  DRIVERS_LICENSE
+  INTERNATIONAL_PASSPORT
+  NATIONAL_ID
+  VOTERS_CARD
+}
+
+enum TransactionType {
+  DEPOSIT
+  REFUND
+  TRANSFER
+  BOOKING_PAYMENT
+  COMMISSION_PAYMENT
+  WALLET_FUNDING
+  GROUP_BOOKING_PAYMENT
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+  ISSUED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+  PARTIAL
+}
+
+enum PaymentMethod {
+  WALLET
+  CARD
+  BANK_TRANSFER
+  CASH
+}
+
+enum TripClass {
+  ECONOMY
+  PREMIUM_ECONOMY
+  BUSINESS
+  FIRST_CLASS
+}
+
+enum BookingType {
+  INDIVIDUAL
+  GROUP
+}
+
+enum GroupBookingStatus {
+  REQUESTED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  ISSUED
+}
+
+enum StaffDepartment {
+  TICKETING
+  CUSTOMER_SERVICE
+  SALES
+  OPERATIONS
+  MANAGEMENT
+}
+
+enum AgentLevel {
+  BRONZE
+  SILVER
+  GOLD
+  PLATINUM
+}
+
+enum AgentKycStatus {
+  PROCESSING
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum AgentSetupStage {
+  OTP_VERIFICATION
+  BVN_VERIFICATION
+  FACE_VERIFICATION
+  PIN_SETUP
+  PROFILE_SETUP
+  OWNER_ID_VERIFICATION
+  AGENT_ID_VERIFICATION
+  COMPLETED
+}
+
+// ==================
+// API MANAGEMENT
+// ==================
+
+model ApiKey {
+  pk          Int        @id @default(autoincrement())
+  id          String     @unique @default(uuid()) @db.Uuid
+  key         String     @unique
+  active      Boolean    @default(true)
+ 
+  staffPk     Int?       @map("staff_pk")
+  staffId     String?    @map("staff_id") @db.Uuid
+  staff       Staff?     @relation(fields: [staffPk, staffId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+  
+  agentPk     Int?       @map("agent_pk")
+  agentId     String?    @map("agent_id") @db.Uuid
+  agent       Agent?     @relation(fields: [agentPk, agentId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+  
+  customerPk  Int?       @map("customer_pk")
+  customerId  String?    @map("customer_id") @db.Uuid
+  customer    Customer?  @relation(fields: [customerPk, customerId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+  
+  description String?
+  expiresAt   DateTime?  @map("expires_at")
+  lastUsed    DateTime?  @map("last_used")
+  rateLimit   Int        @default(1000) @map("rate_limit")
+  requestCount Int       @default(0) @map("request_count")
+  resetAt     DateTime   @default(now()) @map("reset_at")
+  
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@unique([staffPk, staffId])
+  @@unique([agentPk, agentId])
+  @@unique([customerPk, customerId])
+  @@unique([pk, id])
+  @@map("api_keys")
+}
+
+// ==================
+// USER MODELS - SEPARATED
+// ==================
+
+model Staff {
+  pk             Int      @id @default(autoincrement())
+  id             String   @unique @default(uuid()) @db.Uuid
+  employeeId     String   @unique @map("employee_id")
+  email          String   @unique
+  phone          String?  @unique
+  password       String
+  department     StaffDepartment
+  position       String
+  active         Boolean  @default(true)
+  emailVerified  Boolean  @default(false) @map("email_verified")
+  phoneVerified  Boolean  @default(false) @map("phone_verified")
+  
+  // Staff hierarchy
+  managerPk      Int?     @map("manager_pk")
+  managerId      String?  @map("manager_id") @db.Uuid
+  manager        Staff?   @relation("StaffHierarchy", fields: [managerPk, managerId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+  subordinates   Staff[]  @relation("StaffHierarchy")
+  
+  // Permissions
+  canIssueTickets Boolean @default(false) @map("can_issue_tickets")
+  canApproveGroups Boolean @default(false) @map("can_approve_groups")
+  canGenerateReports Boolean @default(false) @map("can_generate_reports")
+  
+  // Relations
+  profile        StaffProfile?
+  apiKeys        ApiKey[]
+  issuedBookings Booking[]  @relation("issuer")
+  bookings Booking[]  @relation("staff_relation")
+  notifications  Notification[]
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([pk, id])
+  @@map("staff")
+}
+
+model Agent {
+  pk             Int      @id @default(autoincrement())
+  id             String   @unique @default(uuid()) @db.Uuid
+  agentCode      String   @unique @map("agent_code")
+  email          String   @unique
+  phone          String?  @unique
+  password       String
+  active         Boolean  @default(true)
+  emailVerified  Boolean  @default(false) @map("email_verified")
+  phoneVerified  Boolean  @default(false) @map("phone_verified")
+  
+  agentLevel     AgentLevel @default(BRONZE) @map("agent_level")
+  commissionRate Float    @default(0.02) @map("commission_rate")
+  
+  // Relations
+  profile        AgentProfile?
+  kyc        AgentKyc?
+  apiKeys        ApiKey[]
+  bookings       Booking[]
+  groupBookings  GroupBooking[]
+  transactions   WalletTransaction[]
+  notifications  Notification[]
+
+  bankAccount    BankAccount?
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([pk, id])
+  @@map("agents")
+}
+
+model Customer {
+  pk             Int      @id @default(autoincrement())
+  id             String   @unique @default(uuid()) @db.Uuid
+  email          String   @unique
+  phone          String?  @unique
+  password       String
+  active         Boolean  @default(true)
+  emailVerified  Boolean  @default(false) @map("email_verified")
+  phoneVerified  Boolean  @default(false) @map("phone_verified")
+  
+  // Frequent flyer
+  frequentFlyerNumber String? @unique @map("frequent_flyer_number")
+  loyaltyPoints       Int     @default(0) @map("loyalty_points")
+  
+  // Relations
+  profile        CustomerProfile?
+  apiKeys        ApiKey[]
+  bookings       Booking[]
+  transactions   WalletTransaction[]
+  notifications  Notification[]
+  bankAccount    BankAccount?
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([pk, id])
+  @@map("customers")
+}
+
+// ==================
+// PROFILE MODELS - SEPARATED
+// ==================
+
+model StaffProfile {
+  pk             Int                     @id @default(autoincrement())
+  id             String                  @unique @default(uuid()) @db.Uuid
+  photo          String?
+  dob            DateTime?
+  firstName      String?                 @map("first_name")
+  lastName       String?                 @map("last_name")
+  middleName     String?                 @map("middle_name")
+  gender         Gender?
+  nationality    String?
+  
+  homeAddress    String?                 @map("home_address")
+  city           String?
+  state          String?
+  country        String?
+  postalCode     String?                 @map("postal_code")
+  
+  idType         IdentificationCardType? @map("id_type")
+  idNumber       String?                 @map("id_number")
+  idVerified     VerificationStatus      @default(NOT_VERIFIED) @map("id_verified")
+  idDocument       String?                 @map("id_document")
+
+  
+  staffPk        Int                     @unique @map("staff_pk")
+  staffId        String                  @unique @map("staff_id") @db.Uuid
+  staff          Staff                   @relation(fields: [staffPk, staffId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([pk, id])
+  @@unique([staffPk, staffId])
+  @@map("staff_profiles")
+}
+
+model AgentProfile {
+  pk             Int                     @id @default(autoincrement())
+  id             String                  @unique @default(uuid()) @db.Uuid
+  photo          String?
+  dob            DateTime?
+  firstName      String?                 @map("first_name")
+  lastName       String?                 @map("last_name")
+  middleName     String?                 @map("middle_name")
+  gender         Gender?
+  nationality    String?
+  
+  // Address
+  homeAddress    String?                 @map("home_address")
+  city           String?
+  lga            String?
+  state          String?
+  country        String?
+  postalCode     String?                 @map("postal_code")
+  
+  // Agent relation
+  agentPk        Int                     @unique @map("agent_pk")
+  agentId        String                  @unique @map("agent_id") @db.Uuid
+  agent          Agent                   @relation(fields: [agentPk, agentId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([pk, id])
+  @@unique([agentPk, agentId])
+  @@map("agent_profiles")
+}
+
+model AgentKyc {
+  pk           Int                     @id @default(autoincrement())
+  id           String                  @unique @default(uuid()) @db.Uuid
+  bvn          String?
+  logo         String?
+  name         String?                 @map("business_name")
+  description  String?                 @map("business_description")
+  idType       IdentificationCardType? @map("id_type")
+  idNumber     String?                 @map("id_number")
+  idImageUrl   String?                 @map("id_image_url")
+  cacNumber    String?                 @map("cac_number")
+  cacImageUrl  String?                 @map("cac_image_url")
+  iataImageUrl String?                 @map("iata_image_url")
+  ncaaImageUrl String?                 @map("ncaa_image_url")
+  nantaImageUrl String?                @map("nanta_image_url")
+  cacVerified  VerificationStatus      @default(NOT_VERIFIED) @map("cac_verified")
+  bvnVerified  VerificationStatus      @default(NOT_VERIFIED) @map("bvn_verified")
+  idVerified   VerificationStatus      @default(NOT_VERIFIED) @map("id_verified")
+  faceVerified VerificationStatus      @default(NOT_VERIFIED) @map("face_verified")
+  iataVerified VerificationStatus      @default(NOT_VERIFIED) @map("iata_verified")
+  ncaaVerified VerificationStatus      @default(NOT_VERIFIED) @map("ncaa_verified")
+  nantaVerified   VerificationStatus   @default(NOT_VERIFIED) @map("nanta_verified")
+  rawBvnData   Json?
+  rawIdData    Json?
+  rawFaceData  Json?
+  rawCacData   Json?
+  iataIdRawData Json?
+  ncaaIdRawData Json?
+  nantaRawData   Json?
+  agentPk   Int                     @map("agent_pk")
+  agentId   String                  @map("agent_id") @db.Uuid
+  agent          Agent                   @relation(fields: [agentPk, agentId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+
+  address      String?                 @map("agency_address")
+  city         String?                 @map("agency_city")
+  state        String?                 @map("agency_state")
+  lga          String?                 @map("agency_lga")
+  country      String?                 @map("agency_country")
+  regStage     AgentSetupStage         @default(OTP_VERIFICATION) @map("reg_stage")
+  employees    String?                    @map("number_of_employees")
+
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  status       AgentKycStatus        @default(PROCESSING)
+
+
+  @@unique([pk, id])
+  @@unique([agentPk, agentId])
+  @@map("agent_kyc")
+}
+
+model CustomerProfile {
+  pk             Int                     @id @default(autoincrement())
+  id             String                  @unique @default(uuid()) @db.Uuid
+  photo          String?
+  dob            DateTime?
+  firstName      String?                 @map("first_name")
+  lastName       String?                 @map("last_name")
+  middleName     String?                 @map("middle_name")
+  gender         Gender?
+  nationality    String?
+  
+  // Travel documents
+  passportNumber String?                 @map("passport_number")
+  passportExpiry DateTime?               @map("passport_expiry")
+  passportCountry String?                @map("passport_country")
+  
+  // Address
+  homeAddress    String?                 @map("home_address")
+  city           String?
+  state          String?
+  country        String?
+  postalCode     String?                 @map("postal_code")
+
+  
+  // Verification
+  idType         IdentificationCardType? @map("id_type")
+  idNumber       String?                 @map("id_number")
+  idVerified     VerificationStatus?      @default(NOT_VERIFIED) @map("id_verified")
+  
+  // Preferences
+  seatPreference String?                 @map("seat_preference")
+  mealPreference String?                 @map("meal_preference")
+  
+  // Customer relation
+  customerPk     Int                     @unique @map("customer_pk")
+  customerId     String                  @unique @map("customer_id") @db.Uuid
+  customer       Customer                @relation(fields: [customerPk, customerId], references: [pk, id],onDelete: Cascade, onUpdate: Cascade)
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([pk, id])
+  @@unique([customerPk, customerId])
+  @@map("customer_profiles")
+}
+
+// ==================
+// SAUDIA AIRLINES OPERATIONS
+// ==================
+
+model Aircraft {
+  pk             Int      @id @default(autoincrement())
+  id             String   @unique @default(uuid()) @db.Uuid
+  registration   String   @unique
+  model          String
+  totalSeats     Int      @map("total_seats")
+  economySeats   Int      @map("economy_seats")
+  businessSeats  Int      @map("business_seats")
+  firstClassSeats Int     @map("first_class_seats")
+  active         Boolean  @default(true)
+  
+  trips          Trip[]
+  createdAt      DateTime @default(now())
+
+  @@unique([pk, id])
+  @@map("aircraft")
+}
+
+model Airport {
+  pk             Int      @id @default(autoincrement())
+  id             String   @unique @default(uuid()) @db.Uuid
+  code           String   @unique
+  name           String
+  city           String
+  country        String
+  timezone       String?
+  active         Boolean  @default(true)
+  
+  departureFlights Trip[] @relation("OriginAirport")
+  arrivalFlights   Trip[] @relation("DestinationAirport")
+  
+  createdAt      DateTime @default(now())
+
+  @@unique([pk, id])
+  @@map("airports")
+}
+
+model Trip {
+  pk             Int       @id @default(autoincrement())
+  id             String    @unique @default(uuid()) @db.Uuid
+  flightNumber   String    @map("flight_number")
+  
+  originCode      String    @map("origin_code")
+  destinationCode String    @map("destination_code")
+  
+  originPk       Int?       @map("origin_pk")
+  originId       String?    @map("origin_id") @db.Uuid
+  destinationPk  Int?       @map("destination_pk")
+  destinationId  String?    @map("destination_id") @db.Uuid
+  origin         Airport?   @relation("OriginAirport", fields: [originPk, originId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+  destination    Airport?   @relation("DestinationAirport", fields: [destinationPk, destinationId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+  
+  // Aircraft relation
+  aircraftPk     Int?       @map("aircraft_pk")
+  aircraftId     String?    @map("aircraft_id") @db.Uuid
+  aircraft       Aircraft?  @relation(fields: [aircraftPk, aircraftId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+  
+  // Schedule
+  departureDate  DateTime  @map("departure_date")
+  arrivalDate    DateTime?  @map("arrival_date")
+  returnDate     DateTime? @map("return_date")
+  
+  // Pricing per class
+  economyPrice   Float?     @map("economy_price")
+  businessPrice  Float?     @map("business_price")
+  firstClassPrice Float?    @map("first_class_price")
+  currency       Currency  @default(SAR)
+  
+  // Availability
+  availableEconomySeats    Int? @map("available_economy_seats")
+  availableBusinessSeats   Int? @map("available_business_seats")
+  availableFirstClassSeats Int? @map("available_first_class_seats")
+  
+  // Status
+  active         Boolean   @default(true)
+  published      Boolean   @default(false)
+  
+  // Relations
+  bookings       Booking[]
+  groupBookings  GroupBooking[]
+  
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([pk, id])
+  @@map("trips")
+}
+
+// ==================
+// BOOKING SYSTEM
+// ==================
+
+model Booking {
+  pk             Int           @id @default(autoincrement())
+  id             String        @unique @default(uuid()) @db.Uuid
+  pnr            String        @unique
+  bookingRef     String        @unique @map("booking_ref")
+  bookingType    BookingType   @default(INDIVIDUAL)
+  
+  staffPk        Int?          @map("staff_pk")
+  staffId        String?       @map("staff_id") @db.Uuid
+  agentPk        Int?          @map("agent_pk")
+  agentId        String?       @map("agent_id") @db.Uuid
+  customerPk     Int?          @map("customer_pk")
+  customerId     String?       @map("customer_id") @db.Uuid
+
+  staff          Staff?        @relation("staff_relation",fields: [staffPk, staffId], references: [pk, id],onDelete: Cascade, onUpdate: Cascade)
+  agent          Agent?        @relation(fields: [agentPk, agentId], references: [pk, id],onDelete: Cascade, onUpdate: Cascade)
+  customer       Customer?     @relation(fields: [customerPk, customerId], references: [pk, id],onDelete: Cascade, onUpdate: Cascade)
+  
+  issuedByPk     Int?          @map("issued_by_pk")
+  issuedById     String?       @map("issued_by_id") @db.Uuid
+  ticketIssuer   Staff?        @relation("issuer",fields: [issuedByPk, issuedById], references: [pk, id],onDelete: Cascade, onUpdate: Cascade)
+  
+  tripPk         Int           @map("trip_pk")
+  tripId         String        @map("trip_id") @db.Uuid
+  trip           Trip          @relation(fields: [tripPk, tripId], references: [pk, id],onDelete: Cascade, onUpdate: Cascade)
+  
+  status         BookingStatus @default(PENDING)
+  paymentStatus  PaymentStatus @default(PENDING)
+  paymentMethod  PaymentMethod
+  
+  baseAmount     Float         @map("base_amount")
+  taxes          Float         @default(0)
+  fees           Float         @default(0)
+  discount       Float         @default(0)
+  totalAmount    Float         @map("total_amount")
+  commission     Float         @default(0)
+  
+  bookingSource  String?       @map("booking_source")
+  specialRequests String?      @map("special_requests")
+  notes          String?
+  
+  passengers     Passenger[]
+  transactions   WalletTransaction[]
+  
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@unique([staffPk, staffId])
+  @@unique([agentPk, agentId])
+  @@unique([customerPk, customerId])
+  @@unique([issuedByPk, issuedById])
+  @@unique([tripPk, tripId])
+  @@unique([pk, id])
+  @@map("bookings")
+}
+
+model GroupBooking {
+  pk             Int               @id @default(autoincrement())
+  id             String            @unique @default(uuid()) @db.Uuid
+  groupRef       String            @unique @map("group_ref")
+  groupName      String            @map("group_name")
+  
+  requestedByPk  Int               @map("requested_by_pk")
+  requestedById  String            @map("requested_by_id") @db.Uuid
+  agent          Agent             @relation(fields: [requestedByPk, requestedById], references: [pk, id],onDelete: Cascade, onUpdate: Cascade)
+  
+  tripPk         Int               @map("trip_pk")
+  tripId         String            @map("trip_id") @db.Uuid
+  trip           Trip              @relation(fields: [tripPk, tripId], references: [pk, id],onDelete: Cascade, onUpdate: Cascade)
+  
+  passengerCount Int               @map("passenger_count")
+  requestedClass TripClass         @map("requested_class")
+  totalAmount    Float             @map("total_amount")
+  discountRate   Float             @default(0) @map("discount_rate")
+  
+  status         GroupBookingStatus @default(REQUESTED)
+
+  applicationLetterUrl String?    @map("application_letter_url")
+  
+  reviewedByPk   Int?              @map("reviewed_by_pk")
+  reviewedById   String?           @map("reviewed_by_id") @db.Uuid
+  approvedByPk   Int?              @map("approved_by_pk")
+  approvedById   String?           @map("approved_by_id") @db.Uuid
+  reviewNotes    String?           @map("review_notes")
+  approvalNotes  String?           @map("approval_notes")
+  
+  travelDate     DateTime          @map("travel_date")
+  requestDeadline DateTime?         @map("request_deadline")
+  
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@unique([pk, id])
+  @@map("group_bookings")
+}
+
+model Passenger {
+  pk             Int      @id @default(autoincrement())
+  id             String   @unique @default(uuid()) @db.Uuid
+  bookingPk      Int      @map("booking_pk")
+  bookingId      String   @map("booking_id") @db.Uuid
+  
+  title          String?
+  firstName      String   @map("first_name")
+  lastName       String   @map("last_name")
+  middleName     String?  @map("middle_name")
+  dateOfBirth    DateTime @map("date_of_birth")
+  gender         Gender
+  nationality    String
+  
+  passportNumber String   @map("passport_number")
+  passportExpiry DateTime @map("passport_expiry")
+  passportCountry String  @map("passport_country")
+  visaRequired   Boolean  @default(false) @map("visa_required")
+  
+  class          TripClass
+  seatNumber     String?  @map("seat_number")
+  seatPreference String?  @map("seat_preference")
+  mealPreference String?  @map("meal_preference")
+  specialRequests String? @map("special_requests")
+  
+  frequentFlyerNumber String? @map("frequent_flyer_number")
+  booking        Booking  @relation(fields: [bookingPk, bookingId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+  
+  createdAt      DateTime @default(now())
+
+  @@unique([bookingPk, bookingId])
+  @@unique([pk, id])
+  @@map("passengers")
+}
+
+// ==================
+// FINANCIAL TRANSACTIONS
+// ==================
+
+model BankAccount {
+  pk                Int      @id @default(autoincrement())
+  id                String   @unique @default(uuid()) @db.Uuid
+  agentPk           Int?
+  agentId           String?   @db.Uuid
+  agent             Agent?    @relation(fields: [agentPk, agentId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+
+  customerPk        Int?
+  customerId        String?   @db.Uuid
+  customer          Customer? @relation(fields: [customerPk, customerId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+
+  accountNumber     String    @map("account_number")
+  accountName       String    @map("account_name")
+  
+  transactions      WalletTransaction[] 
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  @@unique([customerPk, customerId])
+  @@unique([agentPk, agentId])
+  @@unique([pk, id])
+  @@map("bank_accounts")
+}
+
+
+model WalletTransaction {
+  pk             Int             @id @default(autoincrement())
+  id             String          @unique @default(uuid()) @db.Uuid
+  
+  agentPk        Int?            @map("agent_pk")
+  agentId        String?         @map("agent_id") @db.Uuid
+  customerPk     Int?            @map("customer_pk")
+  customerId     String?         @map("customer_id") @db.Uuid
+  
+  agent          Agent?          @relation(fields: [agentPk, agentId], references: [pk, id],onDelete: Cascade, onUpdate: Cascade)
+  customer       Customer?       @relation(fields: [customerPk, customerId], references: [pk, id],onDelete: Cascade, onUpdate: Cascade)
+  
+  bookingPk      Int?            @map("booking_pk")
+  bookingId      String?         @map("booking_id") @db.Uuid
+  booking        Booking?        @relation(fields: [bookingPk, bookingId], references: [pk, id],onDelete: Cascade, onUpdate: Cascade)
+  
+  bankAccountPk     Int?            @map("bank_account_pk")
+  bankAccountId     String?         @map("bank_account_id") @db.Uuid
+  bankAccount       BankAccount?    @relation(fields: [bankAccountPk, bankAccountId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+
+  type           TransactionType
+  amount         Float
+  balanceBefore  Float           @map("balance_before")
+  balanceAfter   Float           @map("balance_after")
+  status         PaymentStatus   @default(PENDING)
+  reference      String          @unique
+  description    String?
+  currency       Currency        @default(SAR)
+  
+  paymentGatewayRef String?      @map("payment_gateway_ref")
+  bankReference     String?      @map("bank_reference")
+  
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@unique([agentPk, agentId])
+  @@unique([customerPk, customerId])
+  @@unique([bookingPk, bookingId])
+  @@unique([pk, id])
+  @@map("wallet_transactions")
+}
+
+// ==================
+// NOTIFICATIONS
+// ==================
+
+model Notification {
+  pk         Int       @id @default(autoincrement())
+  id         String    @unique @default(uuid()) @db.Uuid
+  
+  staffPk    Int?      @map("staff_pk")
+  staffId    String?   @map("staff_id") @db.Uuid
+  agentPk    Int?      @map("agent_pk")
+  agentId    String?   @map("agent_id") @db.Uuid
+  customerPk Int?      @map("customer_pk")
+  customerId String?   @map("customer_id") @db.Uuid
+  
+  staff      Staff?    @relation(fields: [staffPk, staffId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+  agent      Agent?    @relation(fields: [agentPk, agentId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+  customer   Customer? @relation(fields: [customerPk, customerId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+  
+  title      String
+  message    String
+  read       Boolean   @default(false)
+  type       String
+  priority   String    @default("NORMAL")
+  context    Json?
+  
+  createdAt  DateTime  @default(now())
+  expiresAt  DateTime? @map("expires_at")
+
+  @@unique([staffPk, staffId])
+  @@unique([agentPk, agentId])
+  @@unique([customerPk, customerId])
+  @@unique([pk, id])
+  @@map("notifications")
+}
+
+// ==================
+// REPORTING
+// ==================
+
+model Report {
+  pk               Int      @id @default(autoincrement())
+  id               String   @unique @default(uuid()) @db.Uuid
+  reportType       String
+  reportPeriod     String
+  
+  // Metrics
+  totalBookings    Int      @default(0) @map("total_bookings")
+  totalRevenue     Float    @default(0) @map("total_revenue")
+  totalCommission  Float    @default(0) @map("total_commission")
+  totalRefunds     Float    @default(0) @map("total_refunds")
+  groupBookings    Int      @default(0) @map("group_bookings")
+  
+  // User-specific reports (for agents)
+  agentPk          Int?     @map("agent_pk")
+  agentId          String?  @map("agent_id") @db.Uuid
+  
+  // Staff who generated report
+  generatedByPk    Int?     @map("generated_by_pk")
+  generatedById    String?  @map("generated_by_id") @db.Uuid
+  
+  reportData       Json?    @map("report_data")
+  
+  generatedAt      DateTime @default(now()) @map("generated_at")
+
+  @@unique([agentPk, agentId])
+  @@unique([generatedByPk, generatedById])
+  @@unique([pk, id])
+  @@map("reports")
+}
+
+// ==================
+// SYSTEM CONFIGURATION
+// ==================
+
+model SystemConfig {
+  pk         Int      @id @default(autoincrement())
+  id         String   @unique @default(uuid()) @db.Uuid
+  key        String   @unique
+  value      String
+  dataType   String   @default("STRING") @map("data_type")
+  category   String   @default("GENERAL")
+  description String?
+  
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([pk, id])
+  @@map("system_config")
+}
+

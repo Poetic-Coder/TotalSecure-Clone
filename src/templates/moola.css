@@ -1,0 +1,196 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Work+Sans:wght@400;500;600;700;800;900&display=swap');
+
+* {
+  margin: 0px;
+  padding: 0px;
+}
+
+body {
+  width: 100%;
+}
+
+.moola-container {
+  width: 37%;
+  max-width: 595px;
+  margin: 0px auto;
+  padding: 24px 0px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 45px;
+}
+
+.moola-body {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.moola-cont {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.moola-logo {
+  width: fit-content;
+  margin: 0px auto;
+}
+
+.moola-header {
+  width: 100%;
+  padding: 12px 0px;
+  background: #2bd87c;
+  text-align: center;
+  color: #fff;
+  font-family: 'Inter', sans-serif;
+  font-size: 16px;
+  font-style: normal;
+  font-weight: 700;
+  line-height: normal;
+}
+
+.moola-details {
+  width: 47%;
+  margin: 0px auto;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.moola-details h2 {
+  color: #127dfd;
+  font-family: 'Inter', sans-serif;
+  font-size: 16px;
+  font-style: normal;
+  font-weight: 700;
+  line-height: normal;
+}
+
+.moola-details p {
+  color: #454545;
+  font-family: 'Inter', sans-serif;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 500;
+  line-height: normal;
+}
+
+.moola-card-wrapper {
+  width: 95%;
+  margin: 0px auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.moola-card-container {
+  width: 100%;
+  gap: 8px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.moola-card-single {
+  width: 32%;
+  background: #f8f8f8;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 0px;
+}
+
+.moola-card-single p {
+  color: var(--neutral-neutral-400, #4c4d50);
+  font-family: 'Work Sans', sans-serif;
+  font-size: 8px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: normal;
+}
+
+.moola-card-single h2 {
+  color: var(--neutral-neutral-700, #16171a);
+  font-family: 'Work Sans', sans-serif;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 600;
+  line-height: normal;
+}
+
+.moola-card-single .green {
+  color: var(--success-success-600, #2eae4e);
+}
+
+.moola-card-single .red {
+  color: var(--error-error-600, #ff170a);
+}
+
+.moola-table-cont {
+  width: 95%;
+  margin: 0px auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.moola-table-header,
+.moola-table-body {
+  width: 100%;
+  display: flex;
+  gap: 4px;
+}
+
+.moola-table-header div {
+  width: 16%;
+  padding: 8px 0px 8px 8px;
+  box-sizing: border-box;
+  background: var(--success-success-50, #f2fcf5);
+}
+
+.moola-table-header div h2 {
+  color: var(--primary-primary-400-main, #2bd87c);
+  font-family: 'Work Sans', sans-serif;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 600;
+  line-height: normal;
+}
+
+.moola-table-body p {
+  width: 16%;
+  padding: 8px 0px 8px 8px;
+  box-sizing: border-box;
+  color: var(--neutral-neutral-500, #1f2024);
+  font-family: 'Work Sans', sans-serif;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 500;
+  line-height: normal;
+}
+
+.moola-footer {
+  padding: 0px 16px;
+  box-sizing: border-box;
+  text-align: center;
+}
+
+.moola-footer p {
+  color: var(--neutral-neutral-200, #98989a);
+  font-family: 'Work Sans', sans-serif;
+  font-size: 8px;
+  font-style: normal;
+  font-weight: 500;
+  line-height: normal;
+}
+
+@media screen and (max-width: 500px) {
+  .moola-container {
+    width: 100%;
+    max-width: 100%;
+  }
+}

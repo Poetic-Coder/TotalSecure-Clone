@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: Arial, sans-serif; color: #333; }
+        .container { padding: 20px; max-width: 700px; margin: auto; }
+        .header { font-size: 18px; font-weight: bold; margin-bottom: 20px; }
+        .details-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        .details-table th, .details-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        .details-table th { background-color: #f2f2f2; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <p class="header">Group Booking Application - Ref: {{booking.groupRef}}</p>
+        <p>Dear Saudia Group Booking Team,</p>
+        <p>
+            Please find a new group booking request submitted by one of our agents. 
+            The official application letter is attached to this email.
+        </p>
+
+        <table class="details-table">
+            <tr>
+                <th colspan="2">Request Summary</th>
+            </tr>
+            <tr>
+                <td>Group Name</td>
+                <td><strong>{{booking.groupName}}</strong></td>
+            </tr>
+            <tr>
+                <td>Total Passengers</td>
+                <td><strong>{{booking.passengerCount}}</strong></td>
+            </tr>
+            <tr>
+                <td>Flight Number</td>
+                <td><strong>{{booking.trip.flightNumber}}</strong></td>
+            </tr>
+            <tr>
+                <td>Route</td>
+                <td><strong>{{booking.trip.originCode}} → {{booking.trip.destinationCode}}</strong></td>
+            </tr>
+            <tr>
+                <td>Departure Date</td>
+                <td><strong>{{booking.travelDate}}</strong></td>
+            </tr>
+            <tr>
+                <td>Requesting Agent</td>
+                <td><strong>{{agent.profile.firstName}} {{agent.profile.lastName}}</strong></td>
+            </tr>
+            <tr>
+                <td>Agent Contact</td>
+                <td><strong>{{agent.user.email}}</strong></td>
+            </tr>
+        </table>
+
+        <p style="margin-top: 20px;">
+            We kindly request you to review the attached application and provide a quotation at your earliest convenience.
+        </p>
+        <p>
+            <em>Please ensure the reference number <strong>{{booking.groupRef}}</strong> is included in the subject line of your reply for tracking purposes.</em>
+        </p>
+        <p>Thank you.</p>
+    </div>
+</body>
+</html>

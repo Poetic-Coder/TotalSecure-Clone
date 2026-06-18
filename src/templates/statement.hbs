@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+ <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Moola Statement</title>
+    <link rel="stylesheet" href="./moola.css"> <!-- Your CSS link -->
+  </head>
+  <body>
+    <div class="moola-container">
+      <!-- ... [unchanged code] ... -->
+      <div class="moola-details">
+        <h2>{{fullName}}</h2>
+        <p>{{address}}</p>
+      </div>
+      <!-- ... [unchanged code] ... -->
+      <div class="moola-card-wrapper">
+        <!-- ... [unchanged code] ... -->
+        <div class="moola-card-single">
+          <p>Account:</p>
+          <h2>{{accountNumber}}</h2>
+        </div>
+        <div class="moola-card-single">
+          <p>Date:</p>
+          <h2>{{startDate}} - {{endDate}}</h2>
+        </div>
+        <div class="moola-card-single">
+          <p>Opening balance:</p>
+          <h2>{{openingBalance}}</h2>
+        </div>
+        <!-- ... [rest of your card sections with placeholders similar to above] ... -->
+      </div>
+
+      <!-- Loop through transactions -->
+      {{#each transactions}}
+      <div class="moola-table-body">
+        <p>{{date}}</p>
+        <p>{{credit}}</p>
+        <p>{{debit}}</p>
+        <p>{{balance}}</p>
+        <p>{{category}}</p>
+        <p>{{description}}</p>
+      </div>
+      {{/each}}
+      <!-- ... [rest of your code] ... -->
+    </div>
+  </body>
+</html>

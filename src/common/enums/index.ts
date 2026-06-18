@@ -1,0 +1,26 @@
+export enum AccountType {
+  AGENT = 'AGENT',
+  CUSTOMER = 'CUSTOMER',
+  STAFF = 'STAFF',
+  ADMIN = 'ADMIN',
+}
+
+export enum BusinessGender {
+  MALE = 'MALE',
+  FEMALE = 'FEMALE',
+}
+
+export enum CVASChannel {
+  ATM = 'ATM',
+  BANK_TRANSFER = 'BANK_TRANSFER',
+  CASH_DEPOSIT='CASH_DEPOSIT',
+  CHAT_BOT='CHAT_BOT',
+  CORPORATE_IBANKING='CORPORATE_IBANKING',
+  INTERNET_BANKING='INTERNET_BANKING',
+  KIOSK='KIOSK',
+  MOBILE='MOBILE',
+  OTHERS='OTHERS',
+  POS='POS',
+  USSD='USSD',
+  WEB='WEB'
+}
