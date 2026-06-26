@@ -1,12 +1,16 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
+// ============================================================
+// TSNL SECURITY MANAGEMENT SYSTEM (SMS)
+// Prisma Schema — v1.0
+// ============================================================
+
 generator client {
   provider = "prisma-client-js"
   binaryTargets = ["native", "debian-openssl-1.1.x","debian-openssl-3.0.x"]
   previewFeatures = ["interactiveTransactions"]
 }
-
 
 datasource db {
   provider = "postgresql"
@@ -15,19 +19,18 @@ datasource db {
 
 // ==================
 // ENUMS
-// ==================
+// =====================
 
 enum Gender {
   MALE
   FEMALE
+  OTHER
 }
 
-enum Currency {
-  NGN
-  USD
-  GBP
-  EUR
-  SAR 
+enum ActiveStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
 }
 
 enum VerificationStatus {
@@ -44,789 +47,2033 @@ enum IdentificationCardType {
   VOTERS_CARD
 }
 
-enum TransactionType {
-  DEPOSIT
-  REFUND
-  TRANSFER
-  BOOKING_PAYMENT
-  COMMISSION_PAYMENT
-  WALLET_FUNDING
-  GROUP_BOOKING_PAYMENT
+// ------ guard lifecycle------
+
+enum GuardStatus {
+  RECRUITED          // Just joined, pending background check
+  BACKGROUND_CHECK   // Under background screening
+  TRAINING           // In training programme
+  READY              // Cleared, in the pool, awaiting deployment
+  DEPLOYED           // Currently assigned to at least one client
+  SUSPENDED          // Temporarily pulled from all deployments
+  RETIRED            // Exited the company
 }
 
-enum BookingStatus {
+enum BackgroundCheckStatus {
   PENDING
-  CONFIRMED
-  CANCELLED
-  COMPLETED
-  ISSUED
-}
-
-enum PaymentStatus {
-  PENDING
-  PAID
+  IN_PROGRESS
+  PASSED
   FAILED
-  REFUNDED
-  PARTIAL
+  REQUIRES_REVIEW
+}
+
+enum TrainingStatus {
+  ENROLLED
+  IN_PROGRESS
+  PASSED
+  FAILED
+  WAIVED           // no training needed
+}
+
+// ------ deployment ------
+
+enum DeploymentStatus {
+  ACTIVE             // Guard is currently serving this client
+  ENDED              // Deployment closed (contract lost, rotation end, etc.)
+  SUSPENDED          // Temporarily paused at this deployment
+  TRANSFERRED        // Guard moved to another deployment
+}
+
+enum DeploymentEndReason {
+  CONTRACT_LOST
+  CONTRACT_ENDED
+  GUARD_REQUEST
+  CLIENT_REQUEST
+  DISCIPLINARY
+  ROTATION
+  OTHER
+}
+
+// ------ clients ------
+
+enum ClientType {
+  ORGANIZATION       // Corporate — security companies, hospitals, schools, govt
+  INDIVIDUAL         // Residential — estates, homes, small facilities
+}
+
+enum IndividualAccountType {
+  ESTATE
+  RESIDENCE
+  SMALL_FACILITY
+  FARM
+  OTHER
+}
+
+enum ClientStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  CHURNED
+}
+
+enum OnboardingMethod {
+  SELF_SIGNUP        // via the app
+  STAFF_ONBOARDED    // backend onboarding
+}
+
+// ------ sites ------
+
+enum SiteClassification {
+  RESIDENTIAL
+  COMMERCIAL
+  INDUSTRIAL
+  GOVERNMENT
+  EDUCATIONAL
+  HEALTHCARE
+  MIXED_USE
+}
+
+// ------ internal staff ------
+
+enum StaffRole {
+  SUPER_ADMIN
+  HR_MANAGER
+  OPERATIONS_MANAGER
+  SECURITY_SUPERVISOR
+  CONTROL_ROOM_OPERATOR
+  FINANCE_OFFICER
+  ACCOUNT_MANAGER      // Manages client relationships
+}
+
+// ------ shift & attendance ------
+
+enum ShiftType {
+  DAY
+  NIGHT
+  ROTATIONAL
+  CUSTOM
+}
+
+enum AttendanceMethod {
+  GPS
+  QR_CODE
+  BIOMETRIC
+  MANUAL
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum LeaveType {
+  ANNUAL
+  SICK
+  EMERGENCY
+  MATERNITY
+  PATERNITY
+  UNPAID
+}
+
+enum OvertimeStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// ------ incident ------
+
+enum IncidentSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum IncidentType {
+  THEFT
+  TRESPASSING
+  VANDALISM
+  FIRE
+  MEDICAL_EMERGENCY
+  ASSAULT
+  SUSPICIOUS_ACTIVITY
+  PROPERTY_DAMAGE
+  ACCESS_VIOLATION
+  OTHER
+}
+
+enum IncidentStatus {
+  REPORTED
+  UNDER_REVIEW
+  ESCALATED
+  INVESTIGATING
+  RESOLVED
+  CLOSED
+}
+
+enum EscalationLevel {
+  SUPERVISOR
+  OPERATIONS_MANAGER
+  MANAGEMENT
+  EMERGENCY_SERVICES
+}
+
+// ------ visitor & vihecle ------
+
+enum VisitorStatus {
+  PENDING
+  CHECKED_IN
+  CHECKED_OUT
+  REJECTED
+}
+
+enum AccessApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum VehicleStatus {
+  INSIDE
+  OUTSIDE
+  BLACKLISTED
+}
+
+// ------ camera ------
+
+enum CameraStatus {
+  ONLINE
+  OFFLINE
+  MAINTENANCE
+  DECOMMISSIONED
+}
+
+enum RecordingType {
+  CONTINUOUS
+  MOTION_BASED
+  EVENT_BASED
+}
+
+enum AlertType {
+  CAMERA_OFFLINE
+  MOTION_DETECTED
+  INTRUSION
+  TAMPERING
+  FIRE
+  PANIC
+  ACCESS_DENIED
+}
+
+enum AlertStatus {
+  ACTIVE
+  ACKNOWLEDGED
+  RESOLVED
+  FALSE_ALARM
+}
+
+// ------ patrol ------
+
+enum PatrolStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  MISSED
+  ABORTED
+}
+
+enum CheckpointStatus {
+  PENDING
+  SCANNED
+  SKIPPED
+  FLAGGED
+}
+
+// ------ equipments ------
+
+enum EquipmentType {
+  RADIO
+  BODY_CAMERA
+  MOBILE_DEVICE
+  UNIFORM
+  HANDCUFF
+  FIREARM
+  TORCH
+  FIRST_AID_KIT
+  OTHER
+}
+
+enum EquipmentCondition {
+  EXCELLENT
+  GOOD
+  FAIR
+  POOR
+  DAMAGED
+}
+
+// ------ payroll & invoice ------
+
+enum PayrollRunStatus {
+  DRAFT              // Auto-generated, pending HR review
+  SUBMITTED          // Sent to HR/payroll processor
+  APPROVED           // HR approved
+  PAID               // Payment disbursed
+  CANCELLED
+}
+
+enum PayrollLineStatus {
+  INCLUDED
+  EXCLUDED           // HR manually excluded a line
+  ADJUSTED           // HR modified the amount
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  CANCELLED
+  DISPUTED
+}
+
+enum InvoiceLineType {
+  GUARD_SERVICE      // Per guard per period
+  OVERTIME           // Extra hours billed to client
+  EQUIPMENT_FEE
+  MANAGEMENT_FEE
+  PENALTY
+  DISCOUNT
+  OTHER
 }
 
 enum PaymentMethod {
-  WALLET
-  CARD
   BANK_TRANSFER
   CASH
+  CHEQUE
+  ONLINE
 }
 
-enum TripClass {
-  ECONOMY
-  PREMIUM_ECONOMY
-  BUSINESS
-  FIRST_CLASS
+// ------ subs ------
+
+enum PlanTier {
+  FREE
+  STARTER
+  PROFESSIONAL
+  ENTERPRISE
 }
 
-enum BookingType {
-  INDIVIDUAL
-  GROUP
+enum BillingCycle {
+  MONTHLY
+  QUARTERLY
+  ANNUALLY
 }
 
-enum GroupBookingStatus {
-  REQUESTED
-  UNDER_REVIEW
-  APPROVED
-  REJECTED
-  ISSUED
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  EXPIRED
 }
 
-enum StaffDepartment {
-  TICKETING
-  CUSTOMER_SERVICE
-  SALES
-  OPERATIONS
-  MANAGEMENT
+// ------ misc ------
+
+enum NotificationType {
+  INCIDENT_REPORTED
+  INCIDENT_ESCALATED
+  PATROL_MISSED
+  GUARD_ABSENT
+  VISITOR_ARRIVAL
+  CAMERA_OFFLINE
+  ALERT_TRIGGERED
+  LEAVE_REQUEST
+  OVERTIME_REQUEST
+  PAYROLL_GENERATED
+  INVOICE_DUE
+  DEPLOYMENT_ENDED
+  GUARD_READY
+  SYSTEM_ALERT
 }
 
-enum AgentLevel {
-  BRONZE
-  SILVER
-  GOLD
-  PLATINUM
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  PASSWORD_RESET
+  PERMISSION_CHANGE
+  EXPORT
+  APPROVE
+  REJECT
 }
 
-enum AgentKycStatus {
-  PROCESSING
-  PENDING
-  APPROVED
-  REJECTED
+enum ReportType {
+  INCIDENT
+  PATROL
+  ATTENDANCE
+  VISITOR
+  VEHICLE
+  KPI
+  COMPLIANCE
+  RISK
+  PAYROLL
+  DEPLOYMENT
+  CUSTOM
 }
 
-enum AgentSetupStage {
-  OTP_VERIFICATION
-  BVN_VERIFICATION
-  FACE_VERIFICATION
-  PIN_SETUP
-  PROFILE_SETUP
-  OWNER_ID_VERIFICATION
-  AGENT_ID_VERIFICATION
-  COMPLETED
+enum ReportFormat {
+  PDF
+  EXCEL
+  CSV
 }
 
-// ==================
-// API MANAGEMENT
-// ==================
+// ============================================================
+// subs plans
+// Controls which features each client can access.
+// Super Admin seeds plans; each client (org or individual)
+// subscribes to one plan.
+// ============================================================
 
-model ApiKey {
-  pk          Int        @id @default(autoincrement())
-  id          String     @unique @default(uuid()) @db.Uuid
-  key         String     @unique
-  active      Boolean    @default(true)
- 
-  staffPk     Int?       @map("staff_pk")
-  staffId     String?    @map("staff_id") @db.Uuid
-  staff       Staff?     @relation(fields: [staffPk, staffId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
-  
-  agentPk     Int?       @map("agent_pk")
-  agentId     String?    @map("agent_id") @db.Uuid
-  agent       Agent?     @relation(fields: [agentPk, agentId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
-  
-  customerPk  Int?       @map("customer_pk")
-  customerId  String?    @map("customer_id") @db.Uuid
-  customer    Customer?  @relation(fields: [customerPk, customerId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
-  
-  description String?
-  expiresAt   DateTime?  @map("expires_at")
-  lastUsed    DateTime?  @map("last_used")
-  rateLimit   Int        @default(1000) @map("rate_limit")
-  requestCount Int       @default(0) @map("request_count")
-  resetAt     DateTime   @default(now()) @map("reset_at")
-  
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+model SubscriptionPlan {
+  pk                      Int          @id @default(autoincrement())
+  id                      String       @unique @default(uuid()) @db.Uuid
+  name                    String       @unique
+  tier                    PlanTier
+  forClientType           ClientType?  @map("for_client_type") // null = available to both
+  description             String?
+  monthlyPrice            Float        @map("monthly_price")
+  quarterlyPrice          Float?       @map("quarterly_price")
+  annualPrice             Float?       @map("annual_price")
+  currency                String       @default("NGN")
 
-  @@unique([staffPk, staffId])
-  @@unique([agentPk, agentId])
-  @@unique([customerPk, customerId])
+  // Hard limits (null = unlimited)
+  maxSites                Int?         @map("max_sites")
+  maxGuardsDeployed       Int?         @map("max_guards_deployed")
+  maxCameras              Int?         @map("max_cameras")
+  maxStaffUsers           Int?         @map("max_staff_users")
+  storageRetentionDays    Int          @default(30) @map("storage_retention_days")
+
+  // Feature flags per PRD module
+  hasGuardManagement      Boolean      @default(true)  @map("has_guard_management")
+  hasPatrolManagement     Boolean      @default(true)  @map("has_patrol_management")
+  hasVisitorManagement    Boolean      @default(true)  @map("has_visitor_management")
+  hasVehicleManagement    Boolean      @default(true)  @map("has_vehicle_management")
+  hasIncidentManagement   Boolean      @default(true)  @map("has_incident_management")
+  hasCctvIntegration      Boolean      @default(false) @map("has_cctv_integration")
+  hasCommandCenter        Boolean      @default(false) @map("has_command_center")
+  hasReporting            Boolean      @default(true)  @map("has_reporting")
+  hasAdvancedAnalytics    Boolean      @default(false) @map("has_advanced_analytics")
+  hasApiAccess            Boolean      @default(false) @map("has_api_access")
+  hasBiometricCheckin     Boolean      @default(false) @map("has_biometric_checkin")
+  hasSmsAlerts            Boolean      @default(false) @map("has_sms_alerts")
+  hasEmailAlerts          Boolean      @default(true)  @map("has_email_alerts")
+  hasMultiBranch          Boolean      @default(false) @map("has_multi_branch")
+  active                  Boolean      @default(true)
+
+  clientSubscriptions     ClientSubscription[]
+
+  createdAt               DateTime     @default(now())
+  updatedAt               DateTime     @updatedAt
+
   @@unique([pk, id])
-  @@map("api_keys")
+  @@map("subscription_plans")
 }
 
-// ==================
-// USER MODELS - SEPARATED
-// ==================
+// ============================================================
+// internal staff
+// tsnl employees — HR, Operations, Finance, etc.
+// Separate from guards and clients.
+// ============================================================
 
 model Staff {
-  pk             Int      @id @default(autoincrement())
-  id             String   @unique @default(uuid()) @db.Uuid
-  employeeId     String   @unique @map("employee_id")
-  email          String   @unique
-  phone          String?  @unique
-  password       String
-  department     StaffDepartment
-  position       String
-  active         Boolean  @default(true)
-  emailVerified  Boolean  @default(false) @map("email_verified")
-  phoneVerified  Boolean  @default(false) @map("phone_verified")
-  
-  // Staff hierarchy
-  managerPk      Int?     @map("manager_pk")
-  managerId      String?  @map("manager_id") @db.Uuid
-  manager        Staff?   @relation("StaffHierarchy", fields: [managerPk, managerId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
-  subordinates   Staff[]  @relation("StaffHierarchy")
-  
-  // Permissions
-  canIssueTickets Boolean @default(false) @map("can_issue_tickets")
-  canApproveGroups Boolean @default(false) @map("can_approve_groups")
-  canGenerateReports Boolean @default(false) @map("can_generate_reports")
-  
-  // Relations
-  profile        StaffProfile?
-  apiKeys        ApiKey[]
-  issuedBookings Booking[]  @relation("issuer")
-  bookings Booking[]  @relation("staff_relation")
-  notifications  Notification[]
-  
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  pk              Int          @id @default(autoincrement())
+  id              String       @unique @default(uuid()) @db.Uuid
+  employeeId      String       @unique @map("employee_id")
+  email           String       @unique
+  phone           String?      @unique
+  password        String
+  role            StaffRole
+  active          ActiveStatus @default(ACTIVE)
+  emailVerified   Boolean      @default(false) @map("email_verified")
+  phoneVerified   Boolean      @default(false) @map("phone_verified")
+  lastLoginAt     DateTime?    @map("last_login_at")
+
+  // Hierarchy
+  managerPk       Int?         @map("manager_pk")
+  managerId       String?      @map("manager_id") @db.Uuid
+  manager         Staff?       @relation("StaffHierarchy", fields: [managerPk, managerId], references: [pk, id], onDelete: SetNull, onUpdate: Cascade)
+  subordinates    Staff[]      @relation("StaffHierarchy")
+
+  profile                   StaffProfile?
+  apiKeys                   ApiKey[]
+  notifications             Notification[]
+  auditLogs                 AuditLog[]
+
+  // Operational responsibilities
+  managedClients            Client[]               @relation("account_manager")
+  assignedIncidents         Incident[]             @relation("incident_assignee")
+  incidentInvestigations    IncidentInvestigation[]
+  approvedLeaves            LeaveRequest[]         @relation("leave_approver")
+  approvedOvertimes         OvertimeRequest[]      @relation("overtime_approver")
+  approvedPayrollRuns       PayrollRun[]           @relation("payroll_approver")
+  generatedReports          Report[]
+  conductedTrainings        GuardTraining[]        @relation("training_conductor")
+  conductedBackgroundChecks GuardBackgroundCheck[] @relation("background_checker")
+
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
 
   @@unique([pk, id])
   @@map("staff")
 }
 
-model Agent {
-  pk             Int      @id @default(autoincrement())
-  id             String   @unique @default(uuid()) @db.Uuid
-  agentCode      String   @unique @map("agent_code")
-  email          String   @unique
-  phone          String?  @unique
-  password       String
-  active         Boolean  @default(true)
-  emailVerified  Boolean  @default(false) @map("email_verified")
-  phoneVerified  Boolean  @default(false) @map("phone_verified")
-  
-  agentLevel     AgentLevel @default(BRONZE) @map("agent_level")
-  commissionRate Float    @default(0.02) @map("commission_rate")
-  
-  // Relations
-  profile        AgentProfile?
-  kyc        AgentKyc?
-  apiKeys        ApiKey[]
-  bookings       Booking[]
-  groupBookings  GroupBooking[]
-  transactions   WalletTransaction[]
-  notifications  Notification[]
-
-  bankAccount    BankAccount?
-  
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  @@unique([pk, id])
-  @@map("agents")
-}
-
-model Customer {
-  pk             Int      @id @default(autoincrement())
-  id             String   @unique @default(uuid()) @db.Uuid
-  email          String   @unique
-  phone          String?  @unique
-  password       String
-  active         Boolean  @default(true)
-  emailVerified  Boolean  @default(false) @map("email_verified")
-  phoneVerified  Boolean  @default(false) @map("phone_verified")
-  
-  // Frequent flyer
-  frequentFlyerNumber String? @unique @map("frequent_flyer_number")
-  loyaltyPoints       Int     @default(0) @map("loyalty_points")
-  
-  // Relations
-  profile        CustomerProfile?
-  apiKeys        ApiKey[]
-  bookings       Booking[]
-  transactions   WalletTransaction[]
-  notifications  Notification[]
-  bankAccount    BankAccount?
-  
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  @@unique([pk, id])
-  @@map("customers")
-}
-
-// ==================
-// PROFILE MODELS - SEPARATED
-// ==================
-
 model StaffProfile {
-  pk             Int                     @id @default(autoincrement())
-  id             String                  @unique @default(uuid()) @db.Uuid
-  photo          String?
-  dob            DateTime?
-  firstName      String?                 @map("first_name")
-  lastName       String?                 @map("last_name")
-  middleName     String?                 @map("middle_name")
-  gender         Gender?
-  nationality    String?
-  
-  homeAddress    String?                 @map("home_address")
-  city           String?
-  state          String?
-  country        String?
-  postalCode     String?                 @map("postal_code")
-  
-  idType         IdentificationCardType? @map("id_type")
-  idNumber       String?                 @map("id_number")
-  idVerified     VerificationStatus      @default(NOT_VERIFIED) @map("id_verified")
-  idDocument       String?                 @map("id_document")
+  pk          Int                     @id @default(autoincrement())
+  id          String                  @unique @default(uuid()) @db.Uuid
+  photo       String?
+  dob         DateTime?
+  firstName   String?                 @map("first_name")
+  lastName    String?                 @map("last_name")
+  middleName  String?                 @map("middle_name")
+  gender      Gender?
+  nationality String?
+  homeAddress String?                 @map("home_address")
+  city        String?
+  state       String?
+  country     String?
+  postalCode  String?                 @map("postal_code")
+  idType      IdentificationCardType? @map("id_type")
+  idNumber    String?                 @map("id_number")
+  idVerified  VerificationStatus      @default(NOT_VERIFIED) @map("id_verified")
+  idDocument  String?                 @map("id_document")
 
-  
-  staffPk        Int                     @unique @map("staff_pk")
-  staffId        String                  @unique @map("staff_id") @db.Uuid
-  staff          Staff                   @relation(fields: [staffPk, staffId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
-  
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  staffPk     Int                     @unique @map("staff_pk")
+  staffId     String                  @unique @map("staff_id") @db.Uuid
+  staff       Staff                   @relation(fields: [staffPk, staffId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
 
   @@unique([pk, id])
   @@unique([staffPk, staffId])
   @@map("staff_profiles")
 }
 
-model AgentProfile {
-  pk             Int                     @id @default(autoincrement())
-  id             String                  @unique @default(uuid()) @db.Uuid
-  photo          String?
-  dob            DateTime?
-  firstName      String?                 @map("first_name")
-  lastName       String?                 @map("last_name")
-  middleName     String?                 @map("middle_name")
-  gender         Gender?
-  nationality    String?
-  
-  // Address
-  homeAddress    String?                 @map("home_address")
-  city           String?
-  lga            String?
-  state          String?
-  country        String?
-  postalCode     String?                 @map("postal_code")
-  
-  // Agent relation
-  agentPk        Int                     @unique @map("agent_pk")
-  agentId        String                  @unique @map("agent_id") @db.Uuid
-  agent          Agent                   @relation(fields: [agentPk, agentId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
-  
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+// ============================================================
+// guard
+// ============================================================
+
+model Guard {
+  pk                  Int                @id @default(autoincrement())
+  id                  String             @unique @default(uuid()) @db.Uuid
+  employeeId          String             @unique @map("employee_id")
+  email               String             @unique
+  phone               String?            @unique
+  password            String
+  status              GuardStatus        @default(RECRUITED)
+  emailVerified       Boolean            @default(false) @map("email_verified")
+  phoneVerified       Boolean            @default(false) @map("phone_verified")
+  lastLoginAt         DateTime?          @map("last_login_at")
+  recruitedAt         DateTime           @default(now()) @map("recruited_at")
+  retiredAt           DateTime?          @map("retired_at")
+
+  // Base compensation — configurable per deployment via GuardDeployment.guardPayRate
+  baseSalary          Float              @default(0) @map("base_salary")
+  salaryBankName      String?            @map("salary_bank_name")
+  salaryAccountNumber String?            @map("salary_account_number")
+  salaryAccountName   String?            @map("salary_account_name")
+
+  profile             GuardProfile?
+  backgroundCheck     GuardBackgroundCheck?
+  trainings           GuardTraining[]
+  certifications      GuardCertification[]
+  equipmentAssignments EquipmentAssignment[]
+
+  // Deployments — the core link to clients/sites
+  deployments         GuardDeployment[]
+
+  // Operational records all reference GuardDeployment, not Guard directly
+  // (shifts, attendance, patrols are under GuardDeployment)
+
+  leaveRequests       LeaveRequest[]
+  overtimeRequests    OvertimeRequest[]
+  kpiScores           GuardKpiScore[]
+  payrollLines        PayrollLine[]       // guard's payroll history across all deployments
+  notifications       Notification[]
+  apiKeys             ApiKey[]
+
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
 
   @@unique([pk, id])
-  @@unique([agentPk, agentId])
-  @@map("agent_profiles")
+  @@map("guards")
 }
 
-model AgentKyc {
-  pk           Int                     @id @default(autoincrement())
-  id           String                  @unique @default(uuid()) @db.Uuid
-  bvn          String?
-  logo         String?
-  name         String?                 @map("business_name")
-  description  String?                 @map("business_description")
-  idType       IdentificationCardType? @map("id_type")
-  idNumber     String?                 @map("id_number")
-  idImageUrl   String?                 @map("id_image_url")
-  cacNumber    String?                 @map("cac_number")
-  cacImageUrl  String?                 @map("cac_image_url")
-  iataImageUrl String?                 @map("iata_image_url")
-  ncaaImageUrl String?                 @map("ncaa_image_url")
-  nantaImageUrl String?                @map("nanta_image_url")
-  cacVerified  VerificationStatus      @default(NOT_VERIFIED) @map("cac_verified")
-  bvnVerified  VerificationStatus      @default(NOT_VERIFIED) @map("bvn_verified")
-  idVerified   VerificationStatus      @default(NOT_VERIFIED) @map("id_verified")
-  faceVerified VerificationStatus      @default(NOT_VERIFIED) @map("face_verified")
-  iataVerified VerificationStatus      @default(NOT_VERIFIED) @map("iata_verified")
-  ncaaVerified VerificationStatus      @default(NOT_VERIFIED) @map("ncaa_verified")
-  nantaVerified   VerificationStatus   @default(NOT_VERIFIED) @map("nanta_verified")
-  rawBvnData   Json?
-  rawIdData    Json?
-  rawFaceData  Json?
-  rawCacData   Json?
-  iataIdRawData Json?
-  ncaaIdRawData Json?
-  nantaRawData   Json?
-  agentPk   Int                     @map("agent_pk")
-  agentId   String                  @map("agent_id") @db.Uuid
-  agent          Agent                   @relation(fields: [agentPk, agentId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+model GuardProfile {
+  pk                       Int                     @id @default(autoincrement())
+  id                       String                  @unique @default(uuid()) @db.Uuid
+  photo                    String?
+  dob                      DateTime?
+  firstName                String                  @map("first_name")
+  lastName                 String                  @map("last_name")
+  middleName               String?                 @map("middle_name")
+  gender                   Gender?
+  nationality              String?
+  homeAddress              String?                 @map("home_address")
+  city                     String?
+  state                    String?
+  country                  String?
+  postalCode               String?                 @map("postal_code")
+  idType                   IdentificationCardType? @map("id_type")
+  idNumber                 String?                 @map("id_number")
+  idVerified               VerificationStatus      @default(NOT_VERIFIED) @map("id_verified")
+  idDocument               String?                 @map("id_document")
+  emergencyContactName     String?                 @map("emergency_contact_name")
+  emergencyContactPhone    String?                 @map("emergency_contact_phone")
+  emergencyContactRelation String?                 @map("emergency_contact_relation")
 
-  address      String?                 @map("agency_address")
-  city         String?                 @map("agency_city")
-  state        String?                 @map("agency_state")
-  lga          String?                 @map("agency_lga")
-  country      String?                 @map("agency_country")
-  regStage     AgentSetupStage         @default(OTP_VERIFICATION) @map("reg_stage")
-  employees    String?                    @map("number_of_employees")
-
+  guardPk   Int    @unique @map("guard_pk")
+  guardId   String @unique @map("guard_id") @db.Uuid
+  guard     Guard  @relation(fields: [guardPk, guardId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  status       AgentKycStatus        @default(PROCESSING)
-
 
   @@unique([pk, id])
-  @@unique([agentPk, agentId])
-  @@map("agent_kyc")
+  @@unique([guardPk, guardId])
+  @@map("guard_profiles")
 }
 
-model CustomerProfile {
-  pk             Int                     @id @default(autoincrement())
-  id             String                  @unique @default(uuid()) @db.Uuid
-  photo          String?
-  dob            DateTime?
-  firstName      String?                 @map("first_name")
-  lastName       String?                 @map("last_name")
-  middleName     String?                 @map("middle_name")
-  gender         Gender?
-  nationality    String?
-  
-  // Travel documents
-  passportNumber String?                 @map("passport_number")
-  passportExpiry DateTime?               @map("passport_expiry")
-  passportCountry String?                @map("passport_country")
-  
+// Background check
+model GuardBackgroundCheck {
+  pk              Int                   @id @default(autoincrement())
+  id              String                @unique @default(uuid()) @db.Uuid
+  status          BackgroundCheckStatus @default(PENDING)
+  initiatedAt     DateTime              @default(now()) @map("initiated_at")
+  completedAt     DateTime?             @map("completed_at")
+  provider        String?               // if third-party screening company name
+  referenceNumber String?               @map("reference_number")
+  notes           String?
+  documentUrl     String?               @map("document_url") // report upload
+  passedAt        DateTime?             @map("passed_at")
+  failedAt        DateTime?             @map("failed_at")
+  failReason      String?               @map("fail_reason")
+
+  guardPk         Int                   @unique @map("guard_pk")
+  guardId         String                @unique @map("guard_id") @db.Uuid
+  guard           Guard                 @relation(fields: [guardPk, guardId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+
+  conductedByPk   Int?                  @map("conducted_by_pk")
+  conductedById   String?               @map("conducted_by_id") @db.Uuid
+  conductedBy     Staff?                @relation("background_checker", fields: [conductedByPk, conductedById], references: [pk, id], onDelete: SetNull, onUpdate: Cascade)
+
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  @@unique([pk, id])
+  @@map("guard_background_checks")
+}
+
+// Training 
+model GuardTraining {
+  pk            Int            @id @default(autoincrement())
+  id            String         @unique @default(uuid()) @db.Uuid
+  name          String         // e.g. "Basic Security Training", "First Aid"
+  description   String?
+  status        TrainingStatus @default(ENROLLED)
+  startDate     DateTime       @map("start_date") @db.Date
+  endDate       DateTime?      @map("end_date") @db.Date
+  completedAt   DateTime?      @map("completed_at")
+  score         Float?         // exam or assessment score
+  passed        Boolean?
+  certificateUrl String?       @map("certificate_url")
+  notes         String?
+
+  guardPk       Int            @map("guard_pk")
+  guardId       String         @map("guard_id") @db.Uuid
+  guard         Guard          @relation(fields: [guardPk, guardId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+
+  conductedByPk Int?           @map("conducted_by_pk")
+  conductedById String?        @map("conducted_by_id") @db.Uuid
+  conductedBy   Staff?         @relation("training_conductor", fields: [conductedByPk, conductedById], references: [pk, id], onDelete: SetNull, onUpdate: Cascade)
+
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@unique([pk, id])
+  @@map("guard_trainings")
+}
+
+model GuardCertification {
+  pk               Int       @id @default(autoincrement())
+  id               String    @unique @default(uuid()) @db.Uuid
+  name             String
+  issuingBody      String    @map("issuing_body")
+  certificateNumber String?  @map("certificate_number")
+  documentUrl      String?   @map("document_url")
+  issuedAt         DateTime  @map("issued_at")
+  expiresAt        DateTime? @map("expires_at")
+  isExpired        Boolean   @default(false) @map("is_expired")
+  notificationSent Boolean   @default(false) @map("notification_sent")
+
+  guardPk   Int    @map("guard_pk")
+  guardId   String @map("guard_id") @db.Uuid
+  guard     Guard  @relation(fields: [guardPk, guardId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([pk, id])
+  @@map("guard_certifications")
+}
+
+model GuardKpiScore {
+  pk              Int     @id @default(autoincrement())
+  id              String  @unique @default(uuid()) @db.Uuid
+  period          String  // "2025-01"
+  attendanceScore Float   @default(0) @map("attendance_score")
+  patrolScore     Float   @default(0) @map("patrol_score")
+  incidentScore   Float   @default(0) @map("incident_score")
+  overallScore    Float   @default(0) @map("overall_score")
+  notes           String?
+
+  guardPk Int    @map("guard_pk")
+  guardId String @map("guard_id") @db.Uuid
+  guard   Guard  @relation(fields: [guardPk, guardId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([guardPk, period])
+  @@unique([pk, id])
+  @@map("guard_kpi_scores")
+}
+
+// ============================================================
+// clients indiv and cooperates
+// ============================================================
+
+model Client {
+  pk                  Int              @id @default(autoincrement())
+  id                  String           @unique @default(uuid()) @db.Uuid
+  clientType          ClientType       @map("client_type")
+  onboardingMethod    OnboardingMethod @default(SELF_SIGNUP) @map("onboarding_method")
+  status              ClientStatus     @default(ACTIVE)
+
+  // Shared identity
+  name                String           // company name OR estate/residence name
+  slug                String           @unique
+  logo                String?
+  email               String           @unique
+  phone               String?          @unique
+  password            String
+  emailVerified       Boolean          @default(false) @map("email_verified")
+  phoneVerified       Boolean          @default(false) @map("phone_verified")
+  lastLoginAt         DateTime?        @map("last_login_at")
+
   // Address
-  homeAddress    String?                 @map("home_address")
+  address             String?
+  city                String?
+  state               String?
+  country             String?
+  postalCode          String?          @map("postal_code")
+
+  // Organization-specific (only for clientType = ORGANIZATION)
+  industry            String?          // "Healthcare", "Education", etc.
+  registrationNumber  String?          @map("registration_number")
+  taxId               String?          @map("tax_id")
+
+  // Individual-specific (only for clientType = INDIVIDUAL)
+  individualType      IndividualAccountType? @map("individual_type")
+  ownerFirstName      String?          @map("owner_first_name")
+  ownerLastName       String?          @map("owner_last_name")
+  ownerIdType         IdentificationCardType? @map("owner_id_type")
+  ownerIdNumber       String?          @map("owner_id_number")
+  ownerIdDocument     String?          @map("owner_id_document")
+  ownerIdVerified     VerificationStatus @default(NOT_VERIFIED) @map("owner_id_verified")
+
+  // Billing config — per client, configurable
+  // guardPayRate is set per deployment; these are client-level defaults
+  defaultGuardPayoutPct Float          @default(0.30) @map("default_guard_payout_pct") // e.g. 0.30 = guard gets 30% of what client pays
+  invoiceDueDays      Int              @default(30) @map("invoice_due_days")
+  currency            String           @default("NGN")
+
+  // Account manager from your staff
+  accountManagerPk    Int?             @map("account_manager_pk")
+  accountManagerId    String?          @map("account_manager_id") @db.Uuid
+  accountManager      Staff?           @relation("account_manager", fields: [accountManagerPk, accountManagerId], references: [pk, id], onDelete: SetNull, onUpdate: Cascade)
+
+  // Relations
+  subscription        ClientSubscription?
+  branches            ClientBranch[]
+  sites               Site[]
+  clientStaff         ClientStaff[]
+  deployments         GuardDeployment[]
+  incidents           Incident[]
+  visitors            Visitor[]
+  vehicles            Vehicle[]
+  cameras             Camera[]
+  invoices            Invoice[]
+  reports             Report[]
+  auditLogs           AuditLog[]
+  notifications       Notification[]
+
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  @@unique([pk, id])
+  @@map("clients")
+}
+
+// Client subscription to a plan
+model ClientSubscription {
+  pk                 Int                @id @default(autoincrement())
+  id                 String             @unique @default(uuid()) @db.Uuid
+  status             SubscriptionStatus @default(TRIALING)
+  billingCycle       BillingCycle       @default(MONTHLY) @map("billing_cycle")
+  currentPeriodStart DateTime           @map("current_period_start")
+  currentPeriodEnd   DateTime           @map("current_period_end")
+  trialEndsAt        DateTime?          @map("trial_ends_at")
+  cancelledAt        DateTime?          @map("cancelled_at")
+  externalRef        String?            @map("external_ref")
+
+  clientPk           Int                @unique @map("client_pk")
+  clientId           String             @unique @map("client_id") @db.Uuid
+  client             Client             @relation(fields: [clientPk, clientId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+
+  planPk             Int                @map("plan_pk")
+  planId             String             @map("plan_id") @db.Uuid
+  plan               SubscriptionPlan   @relation(fields: [planPk, planId], references: [pk, id], onDelete: Restrict, onUpdate: Cascade)
+
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  @@unique([pk, id])
+  @@map("client_subscriptions")
+}
+
+// Branch — only for ORGANIZATION clients
+model ClientBranch {
+  pk        Int      @id @default(autoincrement())
+  id        String   @unique @default(uuid()) @db.Uuid
+  name      String
+  email     String?
+  phone     String?
+  address   String?
+  city      String?
+  state     String?
+  country   String?
+  active    Boolean  @default(true)
+
+  clientPk  Int      @map("client_pk")
+  clientId  String   @map("client_id") @db.Uuid
+  client    Client   @relation(fields: [clientPk, clientId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+
+  sites     Site[]
+  clientStaff ClientStaff[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([pk, id])
+  @@map("client_branches")
+}
+
+// ClientStaff — the client's own admin/operator users
+// (different from tsnl internal Staff, these are client portal users)
+model ClientStaff {
+  pk             Int          @id @default(autoincrement())
+  id             String       @unique @default(uuid()) @db.Uuid
+  email          String       @unique
+  phone          String?      @unique
+  password       String
+  role           String       // "ADMIN", "OPERATOR", "VIEWER" — flexible string
+  active         ActiveStatus @default(ACTIVE)
+  emailVerified  Boolean      @default(false) @map("email_verified")
+  lastLoginAt    DateTime?    @map("last_login_at")
+
+  clientPk       Int          @map("client_pk")
+  clientId       String       @map("client_id") @db.Uuid
+  client         Client       @relation(fields: [clientPk, clientId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+
+  branchPk       Int?         @map("branch_pk")
+  branchId       String?      @map("branch_id") @db.Uuid
+  branch         ClientBranch? @relation(fields: [branchPk, branchId], references: [pk, id], onDelete: SetNull, onUpdate: Cascade)
+
+  profile        ClientStaffProfile?
+  notifications  Notification[]
+
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([pk, id])
+  @@map("client_staff")
+}
+
+model ClientStaffProfile {
+  pk            Int                     @id @default(autoincrement())
+  id            String                  @unique @default(uuid()) @db.Uuid
+  photo         String?
+  firstName     String?                 @map("first_name")
+  lastName      String?                 @map("last_name")
+  gender        Gender?
+  idType        IdentificationCardType? @map("id_type")
+  idNumber      String?                 @map("id_number")
+  idVerified    VerificationStatus      @default(NOT_VERIFIED) @map("id_verified")
+  idDocument    String?                 @map("id_document")
+
+  clientStaffPk Int                     @unique @map("client_staff_pk")
+  clientStaffId String                  @unique @map("client_staff_id") @db.Uuid
+  clientStaff   ClientStaff             @relation(fields: [clientStaffPk, clientStaffId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+
+  createdAt     DateTime                @default(now())
+  updatedAt     DateTime                @updatedAt
+
+  @@unique([pk, id])
+  @@unique([clientStaffPk, clientStaffId])
+  @@map("client_staff_profiles")
+}
+
+// ============================================================
+// site
+// this belongs to a client. Guards are deployed to sites.
+// ============================================================
+
+model Site {
+  pk             Int                @id @default(autoincrement())
+  id             String             @unique @default(uuid()) @db.Uuid
+  name           String
+  code           String             @unique
+  classification SiteClassification @default(COMMERCIAL)
+  address        String
   city           String?
   state          String?
   country        String?
-  postalCode     String?                 @map("postal_code")
+  latitude       Float?
+  longitude      Float?
+  geofenceRadius Float?             @map("geofence_radius")
+  active         Boolean            @default(true)
+  mapImageUrl    String?            @map("map_image_url")
+  description    String?
 
-  
-  // Verification
-  idType         IdentificationCardType? @map("id_type")
-  idNumber       String?                 @map("id_number")
-  idVerified     VerificationStatus?      @default(NOT_VERIFIED) @map("id_verified")
-  
-  // Preferences
-  seatPreference String?                 @map("seat_preference")
-  mealPreference String?                 @map("meal_preference")
-  
-  // Customer relation
-  customerPk     Int                     @unique @map("customer_pk")
-  customerId     String                  @unique @map("customer_id") @db.Uuid
-  customer       Customer                @relation(fields: [customerPk, customerId], references: [pk, id],onDelete: Cascade, onUpdate: Cascade)
-  
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  clientPk       Int                @map("client_pk")
+  clientId       String             @map("client_id") @db.Uuid
+  client         Client             @relation(fields: [clientPk, clientId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
 
-  @@unique([pk, id])
-  @@unique([customerPk, customerId])
-  @@map("customer_profiles")
-}
+  branchPk       Int?               @map("branch_pk")
+  branchId       String?            @map("branch_id") @db.Uuid
+  branch         ClientBranch?      @relation(fields: [branchPk, branchId], references: [pk, id], onDelete: SetNull, onUpdate: Cascade)
 
-// ==================
-// SAUDIA AIRLINES OPERATIONS
-// ==================
+  deployments    GuardDeployment[]
+  checkpoints    Checkpoint[]
+  shifts         Shift[]
+  cameras        Camera[]
+  incidents      Incident[]
+  visitors       Visitor[]
+  vehicleEntries VehicleEntry[]
+  patrols        Patrol[]
+  parkingZones   ParkingZone[]
 
-model Aircraft {
-  pk             Int      @id @default(autoincrement())
-  id             String   @unique @default(uuid()) @db.Uuid
-  registration   String   @unique
-  model          String
-  totalSeats     Int      @map("total_seats")
-  economySeats   Int      @map("economy_seats")
-  businessSeats  Int      @map("business_seats")
-  firstClassSeats Int     @map("first_class_seats")
-  active         Boolean  @default(true)
-  
-  trips          Trip[]
-  createdAt      DateTime @default(now())
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
 
   @@unique([pk, id])
-  @@map("aircraft")
+  @@map("sites")
 }
 
-model Airport {
-  pk             Int      @id @default(autoincrement())
-  id             String   @unique @default(uuid()) @db.Uuid
-  code           String   @unique
-  name           String
-  city           String
-  country        String
-  timezone       String?
-  active         Boolean  @default(true)
-  
-  departureFlights Trip[] @relation("OriginAirport")
-  arrivalFlights   Trip[] @relation("DestinationAirport")
-  
-  createdAt      DateTime @default(now())
+// ============================================================
+// gurad deployment
+// The core operational record. Links a guard to a client + site.
+// All shifts, attendance, patrols hang off this.
+// When a contract is lost: status → ENDED, guard remains intact.
+// When redeployed: new GuardDeployment row is created.
+// ============================================================
+
+model GuardDeployment {
+  pk                  Int                  @id @default(autoincrement())
+  id                  String               @unique @default(uuid()) @db.Uuid
+  status              DeploymentStatus     @default(ACTIVE)
+  startDate           DateTime             @map("start_date") @db.Date
+  endDate             DateTime?            @map("end_date") @db.Date   // null = still active
+  endReason           DeploymentEndReason? @map("end_reason")
+  endNotes            String?              @map("end_notes")
+
+  // Financial config — per deployment, per client negotiation
+  // Client pays clientRate and guard gets guardPayRate
+  clientRate          Float                @map("client_rate")         // what client pays per month for this guard
+  guardPayRate        Float                @map("guard_pay_rate")      // what guard earns per month on this deployment
+  guardPayoutPct      Float                @map("guard_payout_pct")    // snapshot of the % at time of deployment (for audit)
+  currency            String               @default("NGN")
+
+  guardPk             Int                  @map("guard_pk")
+  guardId             String               @map("guard_id") @db.Uuid
+  guard               Guard                @relation(fields: [guardPk, guardId], references: [pk, id], onDelete: Restrict, onUpdate: Cascade)
+
+  clientPk            Int                  @map("client_pk")
+  clientId            String               @map("client_id") @db.Uuid
+  client              Client               @relation(fields: [clientPk, clientId], references: [pk, id], onDelete: Restrict, onUpdate: Cascade)
+
+  sitePk              Int                  @map("site_pk")
+  siteId              String               @map("site_id") @db.Uuid
+  site                Site                 @relation(fields: [sitePk, siteId], references: [pk, id], onDelete: Restrict, onUpdate: Cascade)
+
+  // All operational activity on this deployment
+  guardShifts         GuardShift[]
+  attendance          AttendanceRecord[]
+  patrols             Patrol[]
+  payrollLines        PayrollLine[]        // payroll lines generated from this deployment
+  invoiceLines        InvoiceLineItem[]    // invoice lines billed to client from this deployment
+
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
 
   @@unique([pk, id])
-  @@map("airports")
+  @@map("guard_deployments")
 }
 
-model Trip {
-  pk             Int       @id @default(autoincrement())
-  id             String    @unique @default(uuid()) @db.Uuid
-  flightNumber   String    @map("flight_number")
-  
-  originCode      String    @map("origin_code")
-  destinationCode String    @map("destination_code")
-  
-  originPk       Int?       @map("origin_pk")
-  originId       String?    @map("origin_id") @db.Uuid
-  destinationPk  Int?       @map("destination_pk")
-  destinationId  String?    @map("destination_id") @db.Uuid
-  origin         Airport?   @relation("OriginAirport", fields: [originPk, originId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
-  destination    Airport?   @relation("DestinationAirport", fields: [destinationPk, destinationId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
-  
-  // Aircraft relation
-  aircraftPk     Int?       @map("aircraft_pk")
-  aircraftId     String?    @map("aircraft_id") @db.Uuid
-  aircraft       Aircraft?  @relation(fields: [aircraftPk, aircraftId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
-  
-  // Schedule
-  departureDate  DateTime  @map("departure_date")
-  arrivalDate    DateTime?  @map("arrival_date")
-  returnDate     DateTime? @map("return_date")
-  
-  // Pricing per class
-  economyPrice   Float?     @map("economy_price")
-  businessPrice  Float?     @map("business_price")
-  firstClassPrice Float?    @map("first_class_price")
-  currency       Currency  @default(SAR)
-  
-  // Availability
-  availableEconomySeats    Int? @map("available_economy_seats")
-  availableBusinessSeats   Int? @map("available_business_seats")
-  availableFirstClassSeats Int? @map("available_first_class_seats")
-  
-  // Status
-  active         Boolean   @default(true)
-  published      Boolean   @default(false)
-  
-  // Relations
-  bookings       Booking[]
-  groupBookings  GroupBooking[]
-  
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+// ============================================================
+// shift and attendance
+// Shifts are site-level templates. GuardShifts are the actual
+// scheduled instances per guard per deployment.
+// ============================================================
+
+model Shift {
+  pk          Int       @id @default(autoincrement())
+  id          String    @unique @default(uuid()) @db.Uuid
+  name        String
+  type        ShiftType
+  startTime   String    @map("start_time") // "06:00"
+  endTime     String    @map("end_time")   // "18:00"
+  daysOfWeek  Int[]     @map("days_of_week")
+  active      Boolean   @default(true)
+
+  sitePk      Int       @map("site_pk")
+  siteId      String    @map("site_id") @db.Uuid
+  site        Site      @relation(fields: [sitePk, siteId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+
+  guardShifts GuardShift[]
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   @@unique([pk, id])
-  @@map("trips")
+  @@map("shifts")
 }
 
-// ==================
-// BOOKING SYSTEM
-// ==================
-
-model Booking {
-  pk             Int           @id @default(autoincrement())
-  id             String        @unique @default(uuid()) @db.Uuid
-  pnr            String        @unique
-  bookingRef     String        @unique @map("booking_ref")
-  bookingType    BookingType   @default(INDIVIDUAL)
-  
-  staffPk        Int?          @map("staff_pk")
-  staffId        String?       @map("staff_id") @db.Uuid
-  agentPk        Int?          @map("agent_pk")
-  agentId        String?       @map("agent_id") @db.Uuid
-  customerPk     Int?          @map("customer_pk")
-  customerId     String?       @map("customer_id") @db.Uuid
-
-  staff          Staff?        @relation("staff_relation",fields: [staffPk, staffId], references: [pk, id],onDelete: Cascade, onUpdate: Cascade)
-  agent          Agent?        @relation(fields: [agentPk, agentId], references: [pk, id],onDelete: Cascade, onUpdate: Cascade)
-  customer       Customer?     @relation(fields: [customerPk, customerId], references: [pk, id],onDelete: Cascade, onUpdate: Cascade)
-  
-  issuedByPk     Int?          @map("issued_by_pk")
-  issuedById     String?       @map("issued_by_id") @db.Uuid
-  ticketIssuer   Staff?        @relation("issuer",fields: [issuedByPk, issuedById], references: [pk, id],onDelete: Cascade, onUpdate: Cascade)
-  
-  tripPk         Int           @map("trip_pk")
-  tripId         String        @map("trip_id") @db.Uuid
-  trip           Trip          @relation(fields: [tripPk, tripId], references: [pk, id],onDelete: Cascade, onUpdate: Cascade)
-  
-  status         BookingStatus @default(PENDING)
-  paymentStatus  PaymentStatus @default(PENDING)
-  paymentMethod  PaymentMethod
-  
-  baseAmount     Float         @map("base_amount")
-  taxes          Float         @default(0)
-  fees           Float         @default(0)
-  discount       Float         @default(0)
-  totalAmount    Float         @map("total_amount")
-  commission     Float         @default(0)
-  
-  bookingSource  String?       @map("booking_source")
-  specialRequests String?      @map("special_requests")
-  notes          String?
-  
-  passengers     Passenger[]
-  transactions   WalletTransaction[]
-  
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-
-  @@unique([staffPk, staffId])
-  @@unique([agentPk, agentId])
-  @@unique([customerPk, customerId])
-  @@unique([issuedByPk, issuedById])
-  @@unique([tripPk, tripId])
-  @@unique([pk, id])
-  @@map("bookings")
-}
-
-model GroupBooking {
-  pk             Int               @id @default(autoincrement())
-  id             String            @unique @default(uuid()) @db.Uuid
-  groupRef       String            @unique @map("group_ref")
-  groupName      String            @map("group_name")
-  
-  requestedByPk  Int               @map("requested_by_pk")
-  requestedById  String            @map("requested_by_id") @db.Uuid
-  agent          Agent             @relation(fields: [requestedByPk, requestedById], references: [pk, id],onDelete: Cascade, onUpdate: Cascade)
-  
-  tripPk         Int               @map("trip_pk")
-  tripId         String            @map("trip_id") @db.Uuid
-  trip           Trip              @relation(fields: [tripPk, tripId], references: [pk, id],onDelete: Cascade, onUpdate: Cascade)
-  
-  passengerCount Int               @map("passenger_count")
-  requestedClass TripClass         @map("requested_class")
-  totalAmount    Float             @map("total_amount")
-  discountRate   Float             @default(0) @map("discount_rate")
-  
-  status         GroupBookingStatus @default(REQUESTED)
-
-  applicationLetterUrl String?    @map("application_letter_url")
-  
-  reviewedByPk   Int?              @map("reviewed_by_pk")
-  reviewedById   String?           @map("reviewed_by_id") @db.Uuid
-  approvedByPk   Int?              @map("approved_by_pk")
-  approvedById   String?           @map("approved_by_id") @db.Uuid
-  reviewNotes    String?           @map("review_notes")
-  approvalNotes  String?           @map("approval_notes")
-  
-  travelDate     DateTime          @map("travel_date")
-  requestDeadline DateTime?         @map("request_deadline")
-  
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
-
-  @@unique([pk, id])
-  @@map("group_bookings")
-}
-
-model Passenger {
-  pk             Int      @id @default(autoincrement())
-  id             String   @unique @default(uuid()) @db.Uuid
-  bookingPk      Int      @map("booking_pk")
-  bookingId      String   @map("booking_id") @db.Uuid
-  
-  title          String?
-  firstName      String   @map("first_name")
-  lastName       String   @map("last_name")
-  middleName     String?  @map("middle_name")
-  dateOfBirth    DateTime @map("date_of_birth")
-  gender         Gender
-  nationality    String
-  
-  passportNumber String   @map("passport_number")
-  passportExpiry DateTime @map("passport_expiry")
-  passportCountry String  @map("passport_country")
-  visaRequired   Boolean  @default(false) @map("visa_required")
-  
-  class          TripClass
-  seatNumber     String?  @map("seat_number")
-  seatPreference String?  @map("seat_preference")
-  mealPreference String?  @map("meal_preference")
-  specialRequests String? @map("special_requests")
-  
-  frequentFlyerNumber String? @map("frequent_flyer_number")
-  booking        Booking  @relation(fields: [bookingPk, bookingId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
-  
-  createdAt      DateTime @default(now())
-
-  @@unique([bookingPk, bookingId])
-  @@unique([pk, id])
-  @@map("passengers")
-}
-
-// ==================
-// FINANCIAL TRANSACTIONS
-// ==================
-
-model BankAccount {
-  pk                Int      @id @default(autoincrement())
-  id                String   @unique @default(uuid()) @db.Uuid
-  agentPk           Int?
-  agentId           String?   @db.Uuid
-  agent             Agent?    @relation(fields: [agentPk, agentId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
-
-  customerPk        Int?
-  customerId        String?   @db.Uuid
-  customer          Customer? @relation(fields: [customerPk, customerId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
-
-  accountNumber     String    @map("account_number")
-  accountName       String    @map("account_name")
-  
-  transactions      WalletTransaction[] 
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  
-  @@unique([customerPk, customerId])
-  @@unique([agentPk, agentId])
-  @@unique([pk, id])
-  @@map("bank_accounts")
-}
-
-
-model WalletTransaction {
+model GuardShift {
   pk             Int             @id @default(autoincrement())
   id             String          @unique @default(uuid()) @db.Uuid
-  
-  agentPk        Int?            @map("agent_pk")
-  agentId        String?         @map("agent_id") @db.Uuid
-  customerPk     Int?            @map("customer_pk")
-  customerId     String?         @map("customer_id") @db.Uuid
-  
-  agent          Agent?          @relation(fields: [agentPk, agentId], references: [pk, id],onDelete: Cascade, onUpdate: Cascade)
-  customer       Customer?       @relation(fields: [customerPk, customerId], references: [pk, id],onDelete: Cascade, onUpdate: Cascade)
-  
-  bookingPk      Int?            @map("booking_pk")
-  bookingId      String?         @map("booking_id") @db.Uuid
-  booking        Booking?        @relation(fields: [bookingPk, bookingId], references: [pk, id],onDelete: Cascade, onUpdate: Cascade)
-  
-  bankAccountPk     Int?            @map("bank_account_pk")
-  bankAccountId     String?         @map("bank_account_id") @db.Uuid
-  bankAccount       BankAccount?    @relation(fields: [bankAccountPk, bankAccountId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+  date           DateTime        @db.Date
+  startTime      DateTime        @map("start_time")
+  endTime        DateTime        @map("end_time")
+  status         PatrolStatus    @default(SCHEDULED)
+  notes          String?
 
-  type           TransactionType
-  amount         Float
-  balanceBefore  Float           @map("balance_before")
-  balanceAfter   Float           @map("balance_after")
-  status         PaymentStatus   @default(PENDING)
-  reference      String          @unique
-  description    String?
-  currency       Currency        @default(SAR)
-  
-  paymentGatewayRef String?      @map("payment_gateway_ref")
-  bankReference     String?      @map("bank_reference")
-  
+  shiftPk        Int             @map("shift_pk")
+  shiftId        String          @map("shift_id") @db.Uuid
+  shift          Shift           @relation(fields: [shiftPk, shiftId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+
+  // Linked to deployment — not directly to guard or client
+  deploymentPk   Int             @map("deployment_pk")
+  deploymentId   String          @map("deployment_id") @db.Uuid
+  deployment     GuardDeployment @relation(fields: [deploymentPk, deploymentId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+
+  attendance     AttendanceRecord?
+
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
 
-  @@unique([agentPk, agentId])
-  @@unique([customerPk, customerId])
-  @@unique([bookingPk, bookingId])
   @@unique([pk, id])
-  @@map("wallet_transactions")
+  @@map("guard_shifts")
 }
 
-// ==================
-// NOTIFICATIONS
-// ==================
+model AttendanceRecord {
+  pk                Int              @id @default(autoincrement())
+  id                String           @unique @default(uuid()) @db.Uuid
+  checkInTime       DateTime?        @map("check_in_time")
+  checkOutTime      DateTime?        @map("check_out_time")
+  checkInMethod     AttendanceMethod? @map("check_in_method")
+  checkOutMethod    AttendanceMethod? @map("check_out_method")
+  checkInLatitude   Float?           @map("check_in_latitude")
+  checkInLongitude  Float?           @map("check_in_longitude")
+  checkOutLatitude  Float?           @map("check_out_latitude")
+  checkOutLongitude Float?           @map("check_out_longitude")
+  checkInQrCode     String?          @map("check_in_qr_code")
+  hoursWorked       Float?           @map("hours_worked")
+  isLate            Boolean          @default(false) @map("is_late")
+  isAbsent          Boolean          @default(false) @map("is_absent")
+  notes             String?
 
-model Notification {
-  pk         Int       @id @default(autoincrement())
-  id         String    @unique @default(uuid()) @db.Uuid
-  
-  staffPk    Int?      @map("staff_pk")
-  staffId    String?   @map("staff_id") @db.Uuid
-  agentPk    Int?      @map("agent_pk")
-  agentId    String?   @map("agent_id") @db.Uuid
-  customerPk Int?      @map("customer_pk")
-  customerId String?   @map("customer_id") @db.Uuid
-  
-  staff      Staff?    @relation(fields: [staffPk, staffId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
-  agent      Agent?    @relation(fields: [agentPk, agentId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
-  customer   Customer? @relation(fields: [customerPk, customerId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
-  
-  title      String
-  message    String
-  read       Boolean   @default(false)
-  type       String
-  priority   String    @default("NORMAL")
-  context    Json?
-  
-  createdAt  DateTime  @default(now())
-  expiresAt  DateTime? @map("expires_at")
+  // Linked to deployment — this gives us full context (guard + client + site)
+  deploymentPk      Int              @map("deployment_pk")
+  deploymentId      String           @map("deployment_id") @db.Uuid
+  deployment        GuardDeployment  @relation(fields: [deploymentPk, deploymentId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
 
-  @@unique([staffPk, staffId])
-  @@unique([agentPk, agentId])
-  @@unique([customerPk, customerId])
+  guardShiftPk      Int?             @unique @map("guard_shift_pk")
+  guardShiftId      String?          @unique @map("guard_shift_id") @db.Uuid
+  guardShift        GuardShift?      @relation(fields: [guardShiftPk, guardShiftId], references: [pk, id], onDelete: SetNull, onUpdate: Cascade)
+
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
   @@unique([pk, id])
-  @@map("notifications")
+  @@map("attendance_records")
 }
 
-// ==================
-// REPORTING
-// ==================
+model LeaveRequest {
+  pk          Int         @id @default(autoincrement())
+  id          String      @unique @default(uuid()) @db.Uuid
+  type        LeaveType
+  startDate   DateTime    @map("start_date") @db.Date
+  endDate     DateTime    @map("end_date") @db.Date
+  totalDays   Int         @map("total_days")
+  reason      String?
+  status      LeaveStatus @default(PENDING)
+  reviewedAt  DateTime?   @map("reviewed_at")
+  reviewNotes String?     @map("review_notes")
+  documentUrl String?     @map("document_url")
+
+  guardPk     Int         @map("guard_pk")
+  guardId     String      @map("guard_id") @db.Uuid
+  guard       Guard       @relation(fields: [guardPk, guardId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+
+  approverPk  Int?        @map("approver_pk")
+  approverId  String?     @map("approver_id") @db.Uuid
+  approver    Staff?      @relation("leave_approver", fields: [approverPk, approverId], references: [pk, id], onDelete: SetNull, onUpdate: Cascade)
+
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@unique([pk, id])
+  @@map("leave_requests")
+}
+
+model OvertimeRequest {
+  pk          Int            @id @default(autoincrement())
+  id          String         @unique @default(uuid()) @db.Uuid
+  date        DateTime       @db.Date
+  hours       Float
+  reason      String?
+  status      OvertimeStatus @default(PENDING)
+  reviewedAt  DateTime?      @map("reviewed_at")
+  reviewNotes String?        @map("review_notes")
+
+  guardPk     Int            @map("guard_pk")
+  guardId     String         @map("guard_id") @db.Uuid
+  guard       Guard          @relation(fields: [guardPk, guardId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+
+  approverPk  Int?           @map("approver_pk")
+  approverId  String?        @map("approver_id") @db.Uuid
+  approver    Staff?         @relation("overtime_approver", fields: [approverPk, approverId], references: [pk, id], onDelete: SetNull, onUpdate: Cascade)
+
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@unique([pk, id])
+  @@map("overtime_requests")
+}
+
+// ============================================================
+// payroll
+// Auto-generated at month end based on active GuardDeployments.
+// One PayrollRun per month. One PayrollLine per deployment.
+// HR reviews draft → approves → marks paid.
+// ============================================================
+
+model PayrollRun {
+  pk              Int              @id @default(autoincrement())
+  id              String           @unique @default(uuid()) @db.Uuid
+  period          String           // "2025-01" — the month this covers
+  periodStart     DateTime         @map("period_start") @db.Date
+  periodEnd       DateTime         @map("period_end") @db.Date
+  status          PayrollRunStatus @default(DRAFT)
+  totalGross      Float            @default(0) @map("total_gross")  // sum of all guardPayRate lines
+  totalNet        Float            @default(0) @map("total_net")    // after deductions
+  totalDeductions Float            @default(0) @map("total_deductions")
+  notes           String?
+  generatedAt     DateTime         @default(now()) @map("generated_at")
+  submittedAt     DateTime?        @map("submitted_at")
+  approvedAt      DateTime?        @map("approved_at")
+  paidAt          DateTime?        @map("paid_at")
+
+  approvedByPk    Int?             @map("approved_by_pk")
+  approvedById    String?          @map("approved_by_id") @db.Uuid
+  approvedBy      Staff?           @relation("payroll_approver", fields: [approvedByPk, approvedById], references: [pk, id], onDelete: SetNull, onUpdate: Cascade)
+
+  lines           PayrollLine[]
+
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@unique([period])  // one run per month
+  @@unique([pk, id])
+  @@map("payroll_runs")
+}
+
+model PayrollLine {
+  pk                Int              @id @default(autoincrement())
+  id                String           @unique @default(uuid()) @db.Uuid
+  status            PayrollLineStatus @default(INCLUDED)
+
+  // Computed from deployment for the period
+  daysWorked        Float            @map("days_worked")
+  hoursWorked       Float            @map("hours_worked")
+  grossAmount       Float            @map("gross_amount")   // guardPayRate prorated for days worked
+  deductions        Float            @default(0)            // tax, pension, etc.
+  netAmount         Float            @map("net_amount")     // grossAmount - deductions
+  overtimeAmount    Float            @default(0) @map("overtime_amount")
+  adjustmentAmount  Float            @default(0) @map("adjustment_amount") // HR manual adjustment
+  adjustmentReason  String?          @map("adjustment_reason")
+  notes             String?
+
+  // Snapshot for audit — rates at time of payroll generation
+  snapshotClientRate   Float         @map("snapshot_client_rate")
+  snapshotGuardPayRate Float         @map("snapshot_guard_pay_rate")
+  snapshotPayoutPct    Float         @map("snapshot_payout_pct")
+
+  payrollRunPk      Int              @map("payroll_run_pk")
+  payrollRunId      String           @map("payroll_run_id") @db.Uuid
+  payrollRun        PayrollRun       @relation(fields: [payrollRunPk, payrollRunId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+
+  guardPk           Int              @map("guard_pk")
+  guardId           String           @map("guard_id") @db.Uuid
+  guard             Guard            @relation(fields: [guardPk, guardId], references: [pk, id], onDelete: Restrict, onUpdate: Cascade)
+
+  deploymentPk      Int              @map("deployment_pk")
+  deploymentId      String           @map("deployment_id") @db.Uuid
+  deployment        GuardDeployment  @relation(fields: [deploymentPk, deploymentId], references: [pk, id], onDelete: Restrict, onUpdate: Cascade)
+
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  @@unique([pk, id])
+  @@map("payroll_lines")
+}
+
+// ============================================================
+// invoiceing client,
+// Generated per client per billing period.
+// Each deployed guard = one InvoiceLineItem at clientRate.
+// Separate from payroll — client never sees guard pay rates.
+// ============================================================
+
+model Invoice {
+  pk              Int           @id @default(autoincrement())
+  id              String        @unique @default(uuid()) @db.Uuid
+  invoiceNumber   String        @unique @map("invoice_number")
+  period          String        // "2025-01"
+  periodStart     DateTime      @map("period_start") @db.Date
+  periodEnd       DateTime      @map("period_end") @db.Date
+  status          InvoiceStatus @default(DRAFT)
+  subtotal        Float         @default(0)
+  taxAmount       Float         @default(0) @map("tax_amount")
+  taxRate         Float         @default(0) @map("tax_rate")
+  totalAmount     Float         @default(0) @map("total_amount")
+  amountPaid      Float         @default(0) @map("amount_paid")
+  amountDue       Float         @default(0) @map("amount_due")
+  currency        String        @default("NGN")
+  dueDate         DateTime      @map("due_date") @db.Date
+  sentAt          DateTime?     @map("sent_at")
+  paidAt          DateTime?     @map("paid_at")
+  notes           String?
+  pdfUrl          String?       @map("pdf_url")
+
+  clientPk        Int           @map("client_pk")
+  clientId        String        @map("client_id") @db.Uuid
+  client          Client        @relation(fields: [clientPk, clientId], references: [pk, id], onDelete: Restrict, onUpdate: Cascade)
+
+  lineItems       InvoiceLineItem[]
+  payments        InvoicePayment[]
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@unique([pk, id])
+  @@map("invoices")
+}
+
+model InvoiceLineItem {
+  pk             Int             @id @default(autoincrement())
+  id             String          @unique @default(uuid()) @db.Uuid
+  type           InvoiceLineType @default(GUARD_SERVICE)
+  description    String          // e.g. "Guard – Black shadow – Jan 2025"
+  quantity       Float           @default(1)   // days or units
+  unitPrice      Float           @map("unit_price")
+  amount         Float
+  notes          String?
+
+  invoicePk      Int             @map("invoice_pk")
+  invoiceId      String          @map("invoice_id") @db.Uuid
+  invoice        Invoice         @relation(fields: [invoicePk, invoiceId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+
+  // For GUARD_SERVICE lines, link to the deployment for traceability
+  deploymentPk   Int?            @map("deployment_pk")
+  deploymentId   String?         @map("deployment_id") @db.Uuid
+  deployment     GuardDeployment? @relation(fields: [deploymentPk, deploymentId], references: [pk, id], onDelete: SetNull, onUpdate: Cascade)
+
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@unique([pk, id])
+  @@map("invoice_line_items")
+}
+
+model InvoicePayment {
+  pk            Int           @id @default(autoincrement())
+  id            String        @unique @default(uuid()) @db.Uuid
+  amount        Float
+  method        PaymentMethod
+  reference     String?       // bank ref, cheque number, etc.
+  paidAt        DateTime      @map("paid_at")
+  notes         String?
+
+  invoicePk     Int           @map("invoice_pk")
+  invoiceId     String        @map("invoice_id") @db.Uuid
+  invoice       Invoice       @relation(fields: [invoicePk, invoiceId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@unique([pk, id])
+  @@map("invoice_payments")
+}
+
+// ============================================================
+// equipment
+// Platform-level pool. Assigned to guards, not clients.
+// ============================================================
+
+model Equipment {
+  pk             Int                @id @default(autoincrement())
+  id             String             @unique @default(uuid()) @db.Uuid
+  name           String
+  serialNumber   String?            @unique @map("serial_number")
+  type           EquipmentType
+  condition      EquipmentCondition @default(GOOD)
+  isAssigned     Boolean            @default(false) @map("is_assigned")
+  notes          String?
+
+  assignments    EquipmentAssignment[]
+
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  @@unique([pk, id])
+  @@map("equipment")
+}
+
+model EquipmentAssignment {
+  pk                Int                @id @default(autoincrement())
+  id                String             @unique @default(uuid()) @db.Uuid
+  assignedAt        DateTime           @default(now()) @map("assigned_at")
+  returnedAt        DateTime?          @map("returned_at")
+  active            Boolean            @default(true)
+  conditionOnReturn EquipmentCondition? @map("condition_on_return")
+  notes             String?
+
+  equipmentPk       Int                @map("equipment_pk")
+  equipmentId       String             @map("equipment_id") @db.Uuid
+  equipment         Equipment          @relation(fields: [equipmentPk, equipmentId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+
+  guardPk           Int                @map("guard_pk")
+  guardId           String             @map("guard_id") @db.Uuid
+  guard             Guard              @relation(fields: [guardPk, guardId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  @@unique([pk, id])
+  @@map("equipment_assignments")
+}
+
+// ============================================================
+// patrol
+// Hangs off GuardDeployment — knows guard, client, site.
+// ============================================================
+
+model Checkpoint {
+  pk                Int       @id @default(autoincrement())
+  id                String    @unique @default(uuid()) @db.Uuid
+  name              String
+  description       String?
+  qrCode            String?   @unique @map("qr_code")
+  rfidTag           String?   @unique @map("rfid_tag")
+  nfcTag            String?   @unique @map("nfc_tag")
+  latitude          Float?
+  longitude         Float?
+  active            Boolean   @default(true)
+  orderIndex        Int       @map("order_index")
+
+  sitePk            Int       @map("site_pk")
+  siteId            String    @map("site_id") @db.Uuid
+  site              Site      @relation(fields: [sitePk, siteId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+
+  patrolCheckpoints PatrolCheckpoint[]
+
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@unique([pk, id])
+  @@map("checkpoints")
+}
+
+model Patrol {
+  pk             Int             @id @default(autoincrement())
+  id             String          @unique @default(uuid()) @db.Uuid
+  scheduledStart DateTime        @map("scheduled_start")
+  scheduledEnd   DateTime        @map("scheduled_end")
+  actualStart    DateTime?       @map("actual_start")
+  actualEnd      DateTime?       @map("actual_end")
+  status         PatrolStatus    @default(SCHEDULED)
+  completionRate Float           @default(0) @map("completion_rate")
+  notes          String?
+  reportUrl      String?         @map("report_url")
+
+  // Deployment carries guard + client + site context
+  deploymentPk   Int             @map("deployment_pk")
+  deploymentId   String          @map("deployment_id") @db.Uuid
+  deployment     GuardDeployment @relation(fields: [deploymentPk, deploymentId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+
+  sitePk         Int             @map("site_pk")
+  siteId         String          @map("site_id") @db.Uuid
+  site           Site            @relation(fields: [sitePk, siteId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+
+  checkpoints    PatrolCheckpoint[]
+
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@unique([pk, id])
+  @@map("patrols")
+}
+
+model PatrolCheckpoint {
+  pk           Int              @id @default(autoincrement())
+  id           String           @unique @default(uuid()) @db.Uuid
+  status       CheckpointStatus @default(PENDING)
+  scannedAt    DateTime?        @map("scanned_at")
+  latitude     Float?
+  longitude    Float?
+  notes        String?
+  photoUrl     String?          @map("photo_url")
+
+  patrolPk     Int              @map("patrol_pk")
+  patrolId     String           @map("patrol_id") @db.Uuid
+  patrol       Patrol           @relation(fields: [patrolPk, patrolId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+
+  checkpointPk Int              @map("checkpoint_pk")
+  checkpointId String           @map("checkpoint_id") @db.Uuid
+  checkpoint   Checkpoint       @relation(fields: [checkpointPk, checkpointId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@unique([pk, id])
+  @@map("patrol_checkpoints")
+}
+
+// ============================================================
+// incident management
+// ============================================================
+
+model Incident {
+  pk              Int              @id @default(autoincrement())
+  id              String           @unique @default(uuid()) @db.Uuid
+  referenceNumber String           @unique @map("reference_number")
+  type            IncidentType
+  severity        IncidentSeverity @default(MEDIUM)
+  status          IncidentStatus   @default(REPORTED)
+  title           String
+  description     String
+  occurredAt      DateTime         @map("occurred_at")
+  location        String?
+  latitude        Float?
+  longitude       Float?
+  isEscalated     Boolean          @default(false) @map("is_escalated")
+  escalationLevel EscalationLevel? @map("escalation_level")
+  resolvedAt      DateTime?        @map("resolved_at")
+  closedAt        DateTime?        @map("closed_at")
+  closureNotes    String?          @map("closure_notes")
+
+  clientPk        Int?             @map("client_pk")
+  clientId        String?          @map("client_id") @db.Uuid
+  client          Client?          @relation(fields: [clientPk, clientId], references: [pk, id], onDelete: SetNull, onUpdate: Cascade)
+
+  sitePk          Int?             @map("site_pk")
+  siteId          String?          @map("site_id") @db.Uuid
+  site            Site?            @relation(fields: [sitePk, siteId], references: [pk, id], onDelete: SetNull, onUpdate: Cascade)
+
+  assigneePk      Int?             @map("assignee_pk")
+  assigneeId      String?          @map("assignee_id") @db.Uuid
+  assignee        Staff?           @relation("incident_assignee", fields: [assigneePk, assigneeId], references: [pk, id], onDelete: SetNull, onUpdate: Cascade)
+
+  evidence        IncidentEvidence[]
+  escalations     IncidentEscalation[]
+  investigation   IncidentInvestigation?
+  correctiveActions CorrectiveAction[]
+
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@unique([pk, id])
+  @@map("incidents")
+}
+
+model IncidentEvidence {
+  pk              Int       @id @default(autoincrement())
+  id              String    @unique @default(uuid()) @db.Uuid
+  title           String?
+  description     String?
+  fileUrl         String    @map("file_url")
+  fileType        String    @map("file_type")
+  thumbnailUrl    String?   @map("thumbnail_url")
+  isVideoEvidence Boolean   @default(false) @map("is_video_evidence")
+  capturedAt      DateTime? @map("captured_at")
+
+  incidentPk Int     @map("incident_pk")
+  incidentId String  @map("incident_id") @db.Uuid
+  incident   Incident @relation(fields: [incidentPk, incidentId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([pk, id])
+  @@map("incident_evidence")
+}
+
+model IncidentEscalation {
+  pk             Int             @id @default(autoincrement())
+  id             String          @unique @default(uuid()) @db.Uuid
+  level          EscalationLevel
+  notes          String?
+  escalatedAt    DateTime        @default(now()) @map("escalated_at")
+  escalatedByPk  Int?            @map("escalated_by_pk")
+  escalatedById  String?         @map("escalated_by_id") @db.Uuid
+
+  incidentPk Int      @map("incident_pk")
+  incidentId String   @map("incident_id") @db.Uuid
+  incident   Incident @relation(fields: [incidentPk, incidentId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([pk, id])
+  @@map("incident_escalations")
+}
+
+model IncidentInvestigation {
+  pk                Int       @id @default(autoincrement())
+  id                String    @unique @default(uuid()) @db.Uuid
+  summary           String?
+  rootCause         String?   @map("root_cause")
+  witnessStatements Json?     @map("witness_statements")
+  findings          String?
+  completedAt       DateTime? @map("completed_at")
+
+  incidentPk Int      @unique @map("incident_pk")
+  incidentId String   @unique @map("incident_id") @db.Uuid
+  incident   Incident @relation(fields: [incidentPk, incidentId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+
+  investigatorPk Int?    @map("investigator_pk")
+  investigatorId String? @map("investigator_id") @db.Uuid
+  investigator   Staff?  @relation(fields: [investigatorPk, investigatorId], references: [pk, id], onDelete: SetNull, onUpdate: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([pk, id])
+  @@map("incident_investigations")
+}
+
+model CorrectiveAction {
+  pk          Int       @id @default(autoincrement())
+  id          String    @unique @default(uuid()) @db.Uuid
+  description String
+  dueDate     DateTime? @map("due_date") @db.Date
+  completedAt DateTime? @map("completed_at")
+  isCompleted Boolean   @default(false) @map("is_completed")
+
+  incidentPk Int      @map("incident_pk")
+  incidentId String   @map("incident_id") @db.Uuid
+  incident   Incident @relation(fields: [incidentPk, incidentId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([pk, id])
+  @@map("corrective_actions")
+}
+
+// ============================================================
+// visitor management
+// ============================================================
+
+model Visitor {
+  pk              Int                     @id @default(autoincrement())
+  id              String                  @unique @default(uuid()) @db.Uuid
+  firstName       String                  @map("first_name")
+  lastName        String                  @map("last_name")
+  email           String?
+  phone           String?
+  photo           String?
+  idType          IdentificationCardType? @map("id_type")
+  idNumber        String?                 @map("id_number")
+  idDocument      String?                 @map("id_document")
+  company         String?
+  isBlacklisted   Boolean                 @default(false) @map("is_blacklisted")
+  blacklistReason String?                 @map("blacklist_reason")
+  blacklistedAt   DateTime?               @map("blacklisted_at")
+
+  clientPk  Int?    @map("client_pk")
+  clientId  String? @map("client_id") @db.Uuid
+  client    Client? @relation(fields: [clientPk, clientId], references: [pk, id], onDelete: SetNull, onUpdate: Cascade)
+
+  visits VisitorVisit[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([pk, id])
+  @@map("visitors")
+}
+
+model VisitorVisit {
+  pk              Int                  @id @default(autoincrement())
+  id              String               @unique @default(uuid()) @db.Uuid
+  purpose         String?
+  hostName        String?              @map("host_name")
+  hostDepartment  String?              @map("host_department")
+  hostPhone       String?              @map("host_phone")
+  status          VisitorStatus        @default(PENDING)
+  approvalStatus  AccessApprovalStatus @default(PENDING) @map("approval_status")
+  badgeNumber     String?              @unique @map("badge_number")
+  badgePrintedAt  DateTime?            @map("badge_printed_at")
+  preRegisteredAt DateTime?            @map("pre_registered_at")
+  checkInTime     DateTime?            @map("check_in_time")
+  checkOutTime    DateTime?            @map("check_out_time")
+  scheduledAt     DateTime?            @map("scheduled_at")
+  notes           String?
+  vehiclePlate    String?              @map("vehicle_plate")
+
+  visitorPk Int     @map("visitor_pk")
+  visitorId String  @map("visitor_id") @db.Uuid
+  visitor   Visitor @relation(fields: [visitorPk, visitorId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+
+  sitePk  Int?    @map("site_pk")
+  siteId  String? @map("site_id") @db.Uuid
+  site    Site?   @relation(fields: [sitePk, siteId], references: [pk, id], onDelete: SetNull, onUpdate: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([pk, id])
+  @@map("visitor_visits")
+}
+
+// ============================================================
+// vehicle management
+// ============================================================
+
+model Vehicle {
+  pk              Int       @id @default(autoincrement())
+  id              String    @unique @default(uuid()) @db.Uuid
+  plateNumber     String    @unique @map("plate_number")
+  make            String?
+  model           String?
+  color           String?
+  type            String?
+  isBlacklisted   Boolean   @default(false) @map("is_blacklisted")
+  blacklistReason String?   @map("blacklist_reason")
+  blacklistedAt   DateTime? @map("blacklisted_at")
+
+  clientPk  Int?    @map("client_pk")
+  clientId  String? @map("client_id") @db.Uuid
+  client    Client? @relation(fields: [clientPk, clientId], references: [pk, id], onDelete: SetNull, onUpdate: Cascade)
+
+  driver  VehicleDriver?
+  entries VehicleEntry[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([pk, id])
+  @@map("vehicles")
+}
+
+model VehicleDriver {
+  pk            Int       @id @default(autoincrement())
+  id            String    @unique @default(uuid()) @db.Uuid
+  firstName     String    @map("first_name")
+  lastName      String    @map("last_name")
+  phone         String?
+  licenseNumber String?   @unique @map("license_number")
+  photo         String?
+  isBlacklisted Boolean   @default(false) @map("is_blacklisted")
+
+  vehiclePk Int     @unique @map("vehicle_pk")
+  vehicleId String  @unique @map("vehicle_id") @db.Uuid
+  vehicle   Vehicle @relation(fields: [vehiclePk, vehicleId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([pk, id])
+  @@map("vehicle_drivers")
+}
+
+model ParkingZone {
+  pk       Int     @id @default(autoincrement())
+  id       String  @unique @default(uuid()) @db.Uuid
+  name     String
+  capacity Int     @default(0)
+  occupied Int     @default(0)
+  active   Boolean @default(true)
+
+  sitePk Int    @map("site_pk")
+  siteId String @map("site_id") @db.Uuid
+  site   Site   @relation(fields: [sitePk, siteId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+
+  entries VehicleEntry[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([pk, id])
+  @@map("parking_zones")
+}
+
+model VehicleEntry {
+  pk             Int                  @id @default(autoincrement())
+  id             String               @unique @default(uuid()) @db.Uuid
+  entryTime      DateTime             @default(now()) @map("entry_time")
+  exitTime       DateTime?            @map("exit_time")
+  purpose        String?
+  approvalStatus AccessApprovalStatus @default(PENDING) @map("approval_status")
+  status         VehicleStatus        @default(INSIDE)
+  plateSnapshot  String?              @map("plate_snapshot")
+  driverVerified Boolean              @default(false) @map("driver_verified")
+  notes          String?
+
+  vehiclePk Int     @map("vehicle_pk")
+  vehicleId String  @map("vehicle_id") @db.Uuid
+  vehicle   Vehicle @relation(fields: [vehiclePk, vehicleId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+
+  sitePk Int    @map("site_pk")
+  siteId String @map("site_id") @db.Uuid
+  site   Site   @relation(fields: [sitePk, siteId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+
+  parkingZonePk Int?         @map("parking_zone_pk")
+  parkingZoneId String?      @map("parking_zone_id") @db.Uuid
+  parkingZone   ParkingZone? @relation(fields: [parkingZonePk, parkingZoneId], references: [pk, id], onDelete: SetNull, onUpdate: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([pk, id])
+  @@map("vehicle_entries")
+}
+
+// ============================================================
+// camera and cctv
+// ============================================================
+
+model Camera {
+  pk                   Int           @id @default(autoincrement())
+  id                   String        @unique @default(uuid()) @db.Uuid
+  name                 String
+  serialNumber         String?       @unique @map("serial_number")
+  ipAddress            String?       @map("ip_address")
+  rtspUrl              String?       @map("rtsp_url")
+  streamUrl            String?       @map("stream_url")
+  make                 String?
+  model                String?
+  resolution           String?
+  status               CameraStatus  @default(ONLINE)
+  recordingType        RecordingType @default(CONTINUOUS) @map("recording_type")
+  isRecording          Boolean       @default(true) @map("is_recording")
+  lastHeartbeat        DateTime?     @map("last_heartbeat")
+  latitude             Float?
+  longitude            Float?
+  mountLocation        String?       @map("mount_location")
+  viewDirection        String?       @map("view_direction")
+  storageRetentionDays Int           @default(30) @map("storage_retention_days")
+
+  clientPk  Int?    @map("client_pk")
+  clientId  String? @map("client_id") @db.Uuid
+  client    Client? @relation(fields: [clientPk, clientId], references: [pk, id], onDelete: SetNull, onUpdate: Cascade)
+
+  sitePk  Int?    @map("site_pk")
+  siteId  String? @map("site_id") @db.Uuid
+  site    Site?   @relation(fields: [sitePk, siteId], references: [pk, id], onDelete: SetNull, onUpdate: Cascade)
+
+  groupPk Int?         @map("group_pk")
+  groupId String?      @map("group_id") @db.Uuid
+  group   CameraGroup? @relation(fields: [groupPk, groupId], references: [pk, id], onDelete: SetNull, onUpdate: Cascade)
+
+  alerts     CameraAlert[]
+  recordings VideoRecording[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([pk, id])
+  @@map("cameras")
+}
+
+model CameraGroup {
+  pk          Int      @id @default(autoincrement())
+  id          String   @unique @default(uuid()) @db.Uuid
+  name        String
+  description String?
+  clientPk    Int?     @map("client_pk")
+  clientId    String?  @map("client_id") @db.Uuid
+
+  cameras Camera[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([pk, id])
+  @@map("camera_groups")
+}
+
+model VideoRecording {
+  pk           Int           @id @default(autoincrement())
+  id           String        @unique @default(uuid()) @db.Uuid
+  startTime    DateTime      @map("start_time")
+  endTime      DateTime?     @map("end_time")
+  filePath     String?       @map("file_path")
+  fileSize     BigInt?       @map("file_size")
+  duration     Int?
+  type         RecordingType
+  thumbnailUrl String?       @map("thumbnail_url")
+  isEvidence   Boolean       @default(false) @map("is_evidence")
+
+  cameraPk Int    @map("camera_pk")
+  cameraId String @map("camera_id") @db.Uuid
+  camera   Camera @relation(fields: [cameraPk, cameraId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([pk, id])
+  @@map("video_recordings")
+}
+
+model CameraAlert {
+  pk             Int         @id @default(autoincrement())
+  id             String      @unique @default(uuid()) @db.Uuid
+  type           AlertType
+  status         AlertStatus @default(ACTIVE)
+  message        String?
+  snapshotUrl    String?     @map("snapshot_url")
+  triggeredAt    DateTime    @default(now()) @map("triggered_at")
+  acknowledgedAt DateTime?   @map("acknowledged_at")
+  resolvedAt     DateTime?   @map("resolved_at")
+
+  cameraPk Int    @map("camera_pk")
+  cameraId String @map("camera_id") @db.Uuid
+  camera   Camera @relation(fields: [cameraPk, cameraId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([pk, id])
+  @@map("camera_alerts")
+}
+
+// ============================================================
+// roles and permission
+// ============================================================
+
+model Role {
+  pk          Int     @id @default(autoincrement())
+  id          String  @unique @default(uuid()) @db.Uuid
+  name        String  @unique
+  description String?
+  isSystem    Boolean @default(false) @map("is_system")
+
+  permissions RolePermission[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([pk, id])
+  @@map("roles")
+}
+
+model Permission {
+  pk          Int     @id @default(autoincrement())
+  id          String  @unique @default(uuid()) @db.Uuid
+  name        String  @unique // "incident:create"
+  module      String           // "INCIDENT"
+  action      String           // "CREATE"
+  description String?
+
+  roles RolePermission[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([pk, id])
+  @@map("permissions")
+}
+
+model RolePermission {
+  pk Int    @id @default(autoincrement())
+  id String @unique @default(uuid()) @db.Uuid
+
+  rolePk Int    @map("role_pk")
+  roleId String @map("role_id") @db.Uuid
+  role   Role   @relation(fields: [rolePk, roleId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+
+  permissionPk Int        @map("permission_pk")
+  permissionId String     @map("permission_id") @db.Uuid
+  permission   Permission @relation(fields: [permissionPk, permissionId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([rolePk, permissionPk])
+  @@unique([pk, id])
+  @@map("role_permissions")
+}
+
+// ============================================================
+// reprts
+// ============================================================
 
 model Report {
-  pk               Int      @id @default(autoincrement())
-  id               String   @unique @default(uuid()) @db.Uuid
-  reportType       String
-  reportPeriod     String
-  
-  // Metrics
-  totalBookings    Int      @default(0) @map("total_bookings")
-  totalRevenue     Float    @default(0) @map("total_revenue")
-  totalCommission  Float    @default(0) @map("total_commission")
-  totalRefunds     Float    @default(0) @map("total_refunds")
-  groupBookings    Int      @default(0) @map("group_bookings")
-  
-  // User-specific reports (for agents)
-  agentPk          Int?     @map("agent_pk")
-  agentId          String?  @map("agent_id") @db.Uuid
-  
-  // Staff who generated report
-  generatedByPk    Int?     @map("generated_by_pk")
-  generatedById    String?  @map("generated_by_id") @db.Uuid
-  
-  reportData       Json?    @map("report_data")
-  
-  generatedAt      DateTime @default(now()) @map("generated_at")
+  pk            Int          @id @default(autoincrement())
+  id            String       @unique @default(uuid()) @db.Uuid
+  title         String
+  type          ReportType
+  format        ReportFormat @default(PDF)
+  filters       Json?
+  fileUrl       String?      @map("file_url")
+  generatedAt   DateTime?    @map("generated_at")
+  periodStart   DateTime?    @map("period_start") @db.Date
+  periodEnd     DateTime?    @map("period_end") @db.Date
+  isScheduled   Boolean      @default(false) @map("is_scheduled")
+  scheduleConfig Json?       @map("schedule_config")
 
-  @@unique([agentPk, agentId])
-  @@unique([generatedByPk, generatedById])
+  clientPk  Int?    @map("client_pk")
+  clientId  String? @map("client_id") @db.Uuid
+  client    Client? @relation(fields: [clientPk, clientId], references: [pk, id], onDelete: SetNull, onUpdate: Cascade)
+
+  generatedByPk Int?    @map("generated_by_pk")
+  generatedById String? @map("generated_by_id") @db.Uuid
+  generatedBy   Staff?  @relation(fields: [generatedByPk, generatedById], references: [pk, id], onDelete: SetNull, onUpdate: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@unique([pk, id])
   @@map("reports")
 }
 
-// ==================
-// SYSTEM CONFIGURATION
-// ==================
+// ============================================================
+// notifications
+// ============================================================
 
-model SystemConfig {
-  pk         Int      @id @default(autoincrement())
-  id         String   @unique @default(uuid()) @db.Uuid
-  key        String   @unique
-  value      String
-  dataType   String   @default("STRING") @map("data_type")
-  category   String   @default("GENERAL")
-  description String?
-  
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+model Notification {
+  pk       Int              @id @default(autoincrement())
+  id       String           @unique @default(uuid()) @db.Uuid
+  type     NotificationType
+  title    String
+  message  String
+  isRead   Boolean          @default(false) @map("is_read")
+  readAt   DateTime?        @map("read_at")
+  metadata Json?
+
+  staffPk Int?    @map("staff_pk")
+  staffId String? @map("staff_id") @db.Uuid
+  staff   Staff?  @relation(fields: [staffPk, staffId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+
+  guardPk Int?    @map("guard_pk")
+  guardId String? @map("guard_id") @db.Uuid
+  guard   Guard?  @relation(fields: [guardPk, guardId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+
+  clientStaffPk Int?         @map("client_staff_pk")
+  clientStaffId String?      @map("client_staff_id") @db.Uuid
+  clientStaff   ClientStaff? @relation(fields: [clientStaffPk, clientStaffId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+
+  clientPk Int?    @map("client_pk")
+  clientId String? @map("client_id") @db.Uuid
+  client   Client? @relation(fields: [clientPk, clientId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([pk, id])
-  @@map("system_config")
+  @@map("notifications")
 }
+
+// ============================================================
+// api keys
+// ============================================================
+
+model ApiKey {
+  pk           Int       @id @default(autoincrement())
+  id           String    @unique @default(uuid()) @db.Uuid
+  key          String    @unique
+  active       Boolean   @default(true)
+  description  String?
+  expiresAt    DateTime? @map("expires_at")
+  lastUsed     DateTime? @map("last_used")
+  rateLimit    Int       @default(1000) @map("rate_limit")
+  requestCount Int       @default(0) @map("request_count")
+  resetAt      DateTime  @default(now()) @map("reset_at")
+
+  staffPk Int?    @map("staff_pk")
+  staffId String? @map("staff_id") @db.Uuid
+  staff   Staff?  @relation(fields: [staffPk, staffId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+
+  guardPk Int?    @map("guard_pk")
+  guardId String? @map("guard_id") @db.Uuid
+  guard   Guard?  @relation(fields: [guardPk, guardId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([staffPk, staffId])
+  @@unique([guardPk, guardId])
+  @@unique([pk, id])
+  @@map("api_keys")
+}
+
+// ============================================================
+// audit log
+// ============================================================
+
+model AuditLog {
+  pk          Int         @id @default(autoincrement())
+  id          String      @unique @default(uuid()) @db.Uuid
+  action      AuditAction
+  module      String
+  targetId    String?     @map("target_id")
+  targetType  String?     @map("target_type")
+  description String?
+  ipAddress   String?     @map("ip_address")
+  userAgent   String?     @map("user_agent")
+  metadata    Json?
+
+  staffPk Int?    @map("staff_pk")
+  staffId String? @map("staff_id") @db.Uuid
+  staff   Staff?  @relation(fields: [staffPk, staffId], references: [pk, id], onDelete: SetNull, onUpdate: Cascade)
+
+  clientPk Int?    @map("client_pk")
+  clientId String? @map("client_id") @db.Uuid
+  client   Client? @relation(fields: [clientPk, clientId], references: [pk, id], onDelete: SetNull, onUpdate: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([pk, id])
+  @@map("audit_logs")
+}
+
+
 
