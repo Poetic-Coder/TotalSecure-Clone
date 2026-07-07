@@ -1636,6 +1636,10 @@ model Visitor {
   clientId  String? @map("client_id") @db.Uuid
   client    Client? @relation(fields: [clientPk, clientId], references: [pk, id], onDelete: SetNull, onUpdate: Cascade)
 
+  sitePk  Int?    @map("site_pk")
+  siteId  String? @map("site_id") @db.Uuid
+  site    Site?   @relation(fields: [sitePk, siteId], references: [pk, id], onDelete: SetNull, onUpdate: Cascade)
+
   visits VisitorVisit[]
 
   createdAt DateTime @default(now())
@@ -1667,9 +1671,7 @@ model VisitorVisit {
   visitorId String  @map("visitor_id") @db.Uuid
   visitor   Visitor @relation(fields: [visitorPk, visitorId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
 
-  sitePk  Int?    @map("site_pk")
-  siteId  String? @map("site_id") @db.Uuid
-  site    Site?   @relation(fields: [sitePk, siteId], references: [pk, id], onDelete: SetNull, onUpdate: Cascade)
+  
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
