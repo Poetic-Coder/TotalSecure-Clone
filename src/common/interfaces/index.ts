@@ -1,6 +1,6 @@
 
 import { AccountType } from '@common/enums';
-import { Agent, Staff, Customer } from '@prisma/client';
+import { Guard, Staff, Client } from '@prisma/client';
 import { TokenType } from '@modules/security/security.interface';
 
 export type DynamicObject = { [name: string]: any };
@@ -32,4 +32,4 @@ export interface DecodedJwt {
     exp: number;
 }
 
-export type AnyUser = Staff | Agent | Customer;
+export type AnyUser = Staff | Client | Guard;

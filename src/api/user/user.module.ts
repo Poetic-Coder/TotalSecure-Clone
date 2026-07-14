@@ -9,16 +9,8 @@ import { ConfigModule } from '@nestjs/config';
 import { FileController } from './controllers/file.controller';
 import { KycModule } from '@api/kyc/kyc.module';
 import { CryptoService } from '@modules/hashing/hashing.service';
-import { AgentController } from './controllers/agent.controller';
 import { UserService } from './services/user.service';
-import { AgentService } from './services/agent.service';
 import { StaffService } from './services/staff.service';
-import { CustomerService } from './services/customer.service';
-import { AgentRepository } from './repositories/agent.repository';
-import { StaffRepository } from './repositories/staff.repository';
-import { CustomerRepository } from './repositories/customer.repository';
-import { AgentProfileService } from './services/agent-profile.service';
-import { AgentProfileRepository } from './repositories/agent-profile.repository';
 import { SecurityModule } from '@modules/security/security.module'; 
 
 
@@ -36,20 +28,13 @@ import { SecurityModule } from '@modules/security/security.module';
     forwardRef(() => KycModule),
     SecurityModule,
   ],
-  controllers: [ FileController, AgentController],
+  controllers: [ FileController],
   providers: [
     UserService,
-    AgentService,
     StaffService,
-    CustomerService,
-    AgentProfileService,
-    AgentRepository,
-    StaffRepository,
-    CustomerRepository,
-    AgentProfileRepository,
     CryptoService,
   ],
-  exports: [UserService, AgentService, StaffService, CustomerService, AgentProfileService, AgentRepository, StaffRepository, CustomerRepository, AgentProfileRepository],
+  exports: [UserService, StaffService],
 
 
 

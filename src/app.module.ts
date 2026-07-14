@@ -51,8 +51,6 @@ import { ExternalMiddleware } from '@common/middlewares/external.middleware';
 import { NotificationModule } from './api/notification/notification.module';
 import { SupportModule } from '@api/support/support.module';
 import { ApiKeyModule } from '@api/apikey/apiKey.module'; 
-import { AdminModule } from './api/admin/admin.module';
-import { BookingModule } from '@api/booking/booking.module';
 
 
 @Module({
@@ -88,8 +86,6 @@ import { BookingModule } from '@api/booking/booking.module';
     NotificationModule,
     SupportModule,
     ApiKeyModule,
-    AdminModule,
-    BookingModule,
   ],
   controllers: [AppController],
   providers: [

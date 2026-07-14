@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@database/prisma.service';
 import { Prisma, Staff } from '@prisma/client';
-import { AgentWithProfile } from './agent.repository';
 
 export type StaffWithProfile = Prisma.StaffGetPayload<{
   include: {

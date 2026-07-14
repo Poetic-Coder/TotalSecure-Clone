@@ -12,8 +12,6 @@ import { EventService } from '@api/events/services/events.service';
 import { KycModule } from '@api/kyc/kyc.module';
 import { CryptoService } from '@modules/hashing/hashing.service';
 import { NotificationService } from '@api/notification/notification.service';
-import { AgentProfileRepository } from '@api/user/repositories/agent-profile.repository';
-import { AgentRepository } from '@api/user/repositories/agent.repository';
 
 @Module({
   imports: [
@@ -32,8 +30,6 @@ import { AgentRepository } from '@api/user/repositories/agent.repository';
     EventService,
     CryptoService,
     NotificationService,
-    AgentProfileRepository,
-    AgentRepository
   ],
 })
 export class WebhookModule {}

@@ -52,28 +52,6 @@ export class AuthenticationController {
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
 
-  @Post('/login/agent')
-  @UseGuards(RolesGuard)
-  @Roles(AccountType.AGENT)
-  @ApiBody({
-    description: 'Login agent',
-    type: LoginDto,
-  })
-  public async loginAgent(@Body() payload: any) {
-    let user;
-
-     user = await this.authService.loginAgent(payload.email, payload.password);
-
-    const token = await this.authService.authenticate(user);
-    
-    return new JwtDto({
-      userAccount: {
-        ...user,
-        profile: user.profile as AgentProfileDto, 
-      },
-      token,
-    });
-  }
 
   @Post('/login/staff')
   @ApiBody({
@@ -96,87 +74,11 @@ export class AuthenticationController {
     });
   }
 
-  @Post('/login/customer')
-  @UseGuards(RolesGuard)
-  @Roles(AccountType.CUSTOMER)
-  @ApiBody({
-    description: 'Login customer',
-    type: LoginDto,
-  })
-  public async loginCustomer(@Body() payload: any) {
-    let user;
-
-     user = await this.authService.loginCustomer(payload.email, payload.password);
-
-    const token = await this.authService.authenticate(user);
-    
-    return new JwtDto({
-      userAccount: {
-        ...user,
-        profile: user.profile as ProfileDto,
-      },
-      token,
-    });
-  }
- 
-  @Post('register/agent')
-  @UseGuards(RolesGuard)
-  @Roles(AccountType.AGENT)
-  @ApiBody({ type: RegisterAgentDto })
-  @ApiOkResponse({
-    description: 'Registered agent',
-    type: JwtDto,
-  })
-  public async registerAgent(@Body() payload: RegisterAgentDto) {
-    const { phone, password, email, registerAccessToken } = payload;
-
-    const verifyAccessToken = await this.verifyRegisterAccessToken(phone, registerAccessToken)
-    if (!verifyAccessToken) {
-      throw new BadRequestException('Access token invalid')
-    }
-
-    const user = await this.authService.registerAgent(email, phone, password);
-    const token = await this.authService.authenticate(user);
-    return new JwtDto({
-      userAccount: {
-        ...user,
-        profile: user.profile as AgentProfileDto, 
-      },
-      token,
-    });
-  }
-
-  @Post('register/customer')
-  @UseGuards(RolesGuard)
-  @Roles(AccountType.CUSTOMER)
-  @ApiBody({ type: RegisterCustomerDto })
-  @ApiOkResponse({
-    description: 'Registered customer',
-    type: JwtDto,
-  })
-  public async registerCustomer(@Body() payload: RegisterCustomerDto) {
-    const { phone, password, email, registerAccessToken } = payload;
-
-    const verifyAccessToken = await this.verifyRegisterAccessToken(phone, registerAccessToken)
-    if (!verifyAccessToken) {
-      throw new BadRequestException('Access token invalid')
-    }
-
-    const user = await this.authService.registerCustomer(email, phone, password);
-    const token = await this.authService.authenticate(user);
-    return new JwtDto({
-      userAccount: {
-        ...user,
-        profile: user.profile as CustomerProfileDto, 
-      },
-      token,
-    });
-  }
   
 
   @Post('/send/otp')
   @UseGuards(RolesGuard)
-  @Roles(AccountType.AGENT, AccountType.CUSTOMER)
+  @Roles(AccountType.GUARD, AccountType.CLIENT)
   @ApiOkResponse({
     description: 'Send otp to email and phone',
     type: OtpResponseDto,
@@ -198,7 +100,7 @@ export class AuthenticationController {
 
   @Post('/verify/otp')
   @UseGuards(RolesGuard)
-  @Roles(AccountType.AGENT, AccountType.CUSTOMER)
+  @Roles(AccountType.GUARD, AccountType.CLIENT)
   @ApiBody({
     description: "Verifies user's OTP",
     type: OtpDto,

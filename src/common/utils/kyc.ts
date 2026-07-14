@@ -4,7 +4,6 @@ import { IdKycMapType } from '@api/kyc/interfaces/kyc';
 import { VerifyMeClient } from '@modules/clients/clients/verifyMe/verifyMe';
 import { YouVerifyService } from '@modules/clients/clients/youVerify/youVerify';
 import { CountryCode } from '@modules/clients/clients/interfaces/youVerify/youVerify.dto';
-import { AgentWithProfile } from '@api/user/repositories/agent.repository';
 
 
 interface VerificationData {
@@ -178,7 +177,7 @@ export const BvnVerification = async (
   NODE_ENV: APP_ENV,
   KYC_PROVIDER: string,
   bvn: string,
-  user: AgentWithProfile,
+  user: any,
   youVerifyService: YouVerifyService,
   verifyMeClient: VerifyMeClient,
 ) => {

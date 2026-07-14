@@ -1,7 +1,7 @@
 import { IsDigit } from '@common/validators/digit';
 import { IsValidID } from '@common/validators/id-validator';
 import { ApiProperty, OmitType } from '@nestjs/swagger';
-import { AgentKycStatus, Gender, IdentificationCardType } from '@prisma/client';
+import {  Gender, IdentificationCardType } from '@prisma/client';
 import { Transform, Type } from 'class-transformer';
 import { IsDate, IsDateString, IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, IsUrl } from 'class-validator';
 

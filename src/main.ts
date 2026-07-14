@@ -20,7 +20,6 @@ import { WebhookModule } from '@api/webhook/webhook.module';
 import { EventModule } from '@api/events/events.module';
 import { APP_ENV } from '@common/interfaces';
 import { KycModule } from '@api/kyc/kyc.module';
-import { BookingModule } from '@api/booking/booking.module';
 
 async function bootstrap() {
   const logger = new Logger(bootstrap.name);
@@ -86,7 +85,6 @@ async function bootstrap() {
     WebhookModule,
     EventModule,
     KycModule,
-    BookingModule,
   ];
 
   const isDev = configService.get<APP_ENV>('NODE_ENV') === 'development';

@@ -55,11 +55,11 @@ export class AuthUserInterceptor implements NestInterceptor {
       case AccountType.STAFF:
         userEntity = await this.prisma.staff.findUnique({ where: { id: userId } });
         break;
-      case AccountType.AGENT:
-        userEntity = await this.prisma.agent.findUnique({ where: { id: userId } });
+      case AccountType.CLIENT:
+        userEntity = await this.prisma.client.findUnique({ where: { id: userId } });
         break;
-      case AccountType.CUSTOMER:
-        userEntity = await this.prisma.customer.findUnique({ where: { id: userId } });
+      case AccountType.GUARD:
+        userEntity = await this.prisma.guard.findUnique({ where: { id: userId } });
         break;
       default:
         throw new UnauthorizedException('Invalid account type in token.');

@@ -822,6 +822,7 @@ model Client {
   reports             Report[]
   auditLogs           AuditLog[]
   notifications       Notification[]
+  apiKeys             ApiKey[]
 
   createdAt           DateTime         @default(now())
   updatedAt           DateTime         @updatedAt
@@ -2043,11 +2044,16 @@ model ApiKey {
   guardId String? @map("guard_id") @db.Uuid
   guard   Guard?  @relation(fields: [guardPk, guardId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
 
+  clientPk Int?    @map("client_pk")
+  clientId String? @map("client_id") @db.Uuid
+  client   Client? @relation(fields: [clientPk, clientId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([staffPk, staffId])
   @@unique([guardPk, guardId])
+  @@unique([clientPk, clientId])
   @@unique([pk, id])
   @@map("api_keys")
 }

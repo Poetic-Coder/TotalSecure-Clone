@@ -16,11 +16,11 @@ export class NotificationService {
       case AccountType.STAFF:
         whereClause.staffId = userId;
         break;
-      case AccountType.AGENT:
-        whereClause.agentId = userId;
+      case AccountType.GUARD:
+        whereClause.guardId = userId;
         break;
-      case AccountType.CUSTOMER:
-        whereClause.customerId = userId;
+      case AccountType.CLIENT:
+        whereClause.clientId = userId;
         break;
       default:
         throw new BadRequestException('Invalid account type for notifications.');
@@ -39,10 +39,9 @@ export class NotificationService {
         title : notificationData.data.title,
         message:  notificationData.data.message,
         type:  notificationData.data.type,
-        context: notificationData.data.context,
         staffId: notificationData.data.staffId,
-        agentId: notificationData.data.agentId,
-        customerId: notificationData.data.customerId,
+        guardId: notificationData.data.guardId,
+        clientId: notificationData.data.clientId,
       },
     });
   }
@@ -54,10 +53,10 @@ export class NotificationService {
     return this.prisma.notification.update({
       where: { id },
       data: {
-        read: read_bool,
+        isRead: read_bool,
         staffId: updateData.data.staffId,
-        agentId: updateData.data.agentId,
-        customerId: updateData.data.customerId,
+        guardId: updateData.data.guardId,
+        clientId: updateData.data.clientId,
       },
     });
   }

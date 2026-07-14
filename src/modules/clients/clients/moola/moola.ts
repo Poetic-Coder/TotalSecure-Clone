@@ -1,4 +1,3 @@
-import { SaudiaAgentDto } from '@api/admin/agent/dto/saudiaAgent.dto';
 import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
@@ -34,7 +33,7 @@ export class MoolaClient {
         return result;
     }
 
-    async sendSaudiaAgent(payload: SaudiaAgentDto) {
+    async sendSaudiaAgent(payload) {
         const url = `${this.baseUrl}/api/v1/business-user/create-saudia-agent`;
         const response = await axios.post(url, payload, { headers: this.headers });
         const result = response.data
