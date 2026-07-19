@@ -241,29 +241,21 @@ export class BusinessAuthService {
     const existingEmail = await this.prisma.client.findUnique({
       where: { email: dto.email },
     });
-    if (existingEmail) {
-      throw new BadRequestException(['Registration failed. Please check your details.']);
+
+       if (existingEmail) {
+      throw new BadRequestException(['Email already registered']);
     }
 
     const normalizedPhone = dto.phone ? cleanPhone(dto.phone) : undefined;
-    if (normalizedPhone) {
-  const existingPhone = await this.prisma.client.findUnique({
+      if (normalizedPhone) {
+    const existingPhone = await this.prisma.client.findUnique({
     where: { phone: normalizedPhone },
     });
-    if (existingPhone) {
-    throw new BadRequestException(['Registration failed. Please check your details.']);
-    }
-}
 
-    if (dto.phone) {
-      const existingPhone = await this.prisma.client.findUnique({
-        where: { phone: dto.phone },
-      });
       if (existingPhone) {
-       throw new BadRequestException(['Registration failed. Please check your details.']);
+      throw new BadRequestException(['Phone number already registered']);
       }
-    }
-    
+    }    
 
     const hashedPassword = await this.hashingService.hash(dto.password);
     const slug = this.generateSlug(dto.name);
