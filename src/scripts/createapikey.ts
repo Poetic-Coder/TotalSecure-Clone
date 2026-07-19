@@ -8,13 +8,14 @@ const argv = yargs(hideBin(process.argv))
   .option('staff', { type: 'string', description: 'Email of Staff member' })
   .option('guard', { type: 'string', description: 'Email of Guard' })
   .option('client', { type: 'string', description: 'Email of Client' })
+  .option('clientstaff', { type: 'string', description: 'Email of Client Staff member' })
   .option('description', { type: 'string', default: 'Script-generated key' })
   .option('expires', { type: 'number', description: 'Days until expiry' })
   .option('rate-limit', { type: 'number', default: 1000, description: 'Max requests per hour' })
   .option('force', { type: 'boolean', default: false, description: 'Rotate if key exists' })
   .check((argv) => {
-    const count = [argv.staff, argv.guard, argv.client].filter(Boolean).length;
-    if (count !== 1) throw new Error('Specify exactly one: --staff, --guard, or --client');
+    const count = [argv.staff, argv.guard, argv.client, argv.clientstaff].filter(Boolean).length;
+    if (count !== 1) throw new Error('Specify exactly one: --staff, --guard, --client, or --clientstaff');
     return true;
   })
   .parseSync();
@@ -22,11 +23,12 @@ const argv = yargs(hideBin(process.argv))
 async function main() {
   const prisma = new PrismaClient();
 
-  let ownerType: 'staff' | 'guard' | 'client';
+  let ownerType: 'staff' | 'guard' | 'client' | 'clientstaff';
   let email: string;
   if (argv.staff) { ownerType = 'staff'; email = argv.staff; }
   else if (argv.guard) { ownerType = 'guard'; email = argv.guard; }
-  else { ownerType = 'client'; email = argv.client; }
+  else if (argv.client) { ownerType = 'client'; email = argv.client; }
+  else { ownerType = 'clientstaff'; email = argv.clientstaff; }
 
   let user: any;
   switch (ownerType) {
@@ -39,13 +41,31 @@ async function main() {
     case 'client':
       user = await prisma.client.findUnique({ where: { email } });
       break;
+    case 'clientstaff':
+      user = await prisma.clientStaff.findUnique({ where: { email }})
   }
 
   if (!user) throw new Error(`No ${ownerType} found with email ${email}`);
 
-  const existing = await prisma.apiKey.findFirst({
-    where: { [`${ownerType}Id`]: user.id, active: true },
-  });
+  // Determine how to scope the API key
+  let whereClause: any;
+  let connectClause: any;
+
+  if (ownerType === 'staff') {
+    whereClause = { staffId: user.id, active: true };
+    connectClause = { staff: { connect: { id: user.id } } };
+  } else if (ownerType === 'guard') {
+    whereClause = { guardId: user.id, active: true };
+    connectClause = { guard: { connect: { id: user.id } } };
+  } else if (ownerType === 'client') {
+    whereClause = { clientId: user.id, active: true };
+    connectClause = { client: { connect: { id: user.id } } };
+  } else {
+    whereClause = { clientId: user.clientId, active: true };
+    connectClause = { client: { connect: { id: user.clientId } } };
+  }
+
+  const existing = await prisma.apiKey.findFirst({ where: whereClause });
 
   if (existing && !argv.force) {
     console.log(`Key already exists for ${email}. Use --force to rotate.`);
@@ -66,7 +86,7 @@ async function main() {
       expiresAt: argv.expires ? addDays(new Date(), argv.expires) : null,
       resetAt: new Date(),
       requestCount: 0,
-      [ownerType]: { connect: { id: user.id } },
+      ...connectClause,
     },
   });
 
