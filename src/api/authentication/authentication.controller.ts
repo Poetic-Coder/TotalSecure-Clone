@@ -38,6 +38,7 @@ import { ApiHeaders } from '@common/decorators/defaultHeaders';
 import { getRandomString } from '@common/utils/general';
 import { OTP_EXPIRY } from '@common/constants';
 import { Cache } from 'cache-manager';
+import { GuardProfileDto } from '@api/user/dtos/guard-profile.dto';
 
 
 
@@ -69,6 +70,27 @@ export class AuthenticationController {
       userAccount: {
         ...user,
         profile: user.profile as StaffProfileDto,
+      },
+      token,
+    });
+  }
+
+  @Post('/login/guard')
+  @ApiBody({
+    description: 'Login Guard',
+    type: LoginDto,
+  })
+  public async loginGuard(@Body() payload: any) {
+    let user;
+
+     user = await this.authService.loginGuard(payload.email, payload.password);
+
+    const token = await this.authService.authenticate(user);
+    
+    return new JwtDto({
+      userAccount: {
+        ...user,
+        profile: user.profile as GuardProfileDto,
       },
       token,
     });
