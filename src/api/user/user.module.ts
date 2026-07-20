@@ -12,6 +12,9 @@ import { CryptoService } from '@modules/hashing/hashing.service';
 import { UserService } from './services/user.service';
 import { StaffService } from './services/staff.service';
 import { SecurityModule } from '@modules/security/security.module'; 
+import { StaffRepository } from './repositories/staff.repository';
+import { GuardRepository } from './repositories/guard.repository';
+import { GuardService } from './services/guard.service';
 
 
 
@@ -33,8 +36,11 @@ import { SecurityModule } from '@modules/security/security.module';
     UserService,
     StaffService,
     CryptoService,
+    StaffRepository,
+    GuardRepository,
+    GuardService
   ],
-  exports: [UserService, StaffService],
+  exports: [UserService, StaffService, GuardService],
 
 
 

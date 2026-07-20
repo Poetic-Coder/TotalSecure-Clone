@@ -9,6 +9,7 @@ import {
 } from 'class-validator';
 import { isMatch } from '@common/validators/match_field';
 import { Type } from 'class-transformer';
+import { StaffRole } from '@prisma/client';
 
 class DeviceData {
   @ApiProperty({ description: 'Device Operating System' })
@@ -192,4 +193,91 @@ export class RegisterWithBvnOrPhoneDto {
   @IsString()
   @IsNotEmpty()
   gender: Gender;
+}
+
+export class RegisterStaffDto {
+  @ApiProperty({description: "Staff's Id"})
+  @IsString()
+  @IsNotEmpty()
+  employeeId: string
+
+  @ApiProperty({description: "Staff's First Name"})
+  @IsString()
+  @IsNotEmpty()
+  firstName: string
+
+  @ApiProperty({description: "Staff's Last Name"})
+  @IsString()
+  @IsNotEmpty()
+  lastName: string
+
+  @ApiProperty({description: "Staff's Middle Name"})
+  @IsString()
+  @IsOptional()
+  middleName?: string
+  
+  @ApiProperty({enum: Gender, description: "Staff's Gender"})
+  @IsString()
+  @IsNotEmpty()
+  gender: Gender
+
+  @ApiProperty({enum: StaffRole, description: "Staff's Role"})
+  @IsString()
+  @IsNotEmpty()
+  role: StaffRole
+
+  @ApiProperty({ description: "Staff's phone" })
+  @IsPhoneNumber('NG')
+  @IsNotEmpty()
+  phone: string;
+
+  @ApiProperty({ description: "Staff's email" })
+  @IsEmail()
+  email: string;
+
+  @ApiProperty({ description: "Staff's password" })
+  @IsString()
+  @IsNotEmpty()
+  password: string;
+}
+
+export class RegisterGuardDto {
+  @ApiProperty({description: "Guard's Id"})
+  @IsString()
+  @IsNotEmpty()
+  employeeId: string
+
+  @ApiProperty({description: "Guard's First Name"})
+  @IsString()
+  @IsNotEmpty()
+  firstName: string
+
+  @ApiProperty({description: "Guard's Last Name"})
+  @IsString()
+  @IsNotEmpty()
+  lastName: string
+
+  @ApiProperty({description: "Guard's Middle Name"})
+  @IsString()
+  @IsOptional()
+  middleName?: string
+  
+  @ApiProperty({enum: Gender, description: "Guard's Gender"})
+  @IsString()
+  @IsNotEmpty()
+  gender: Gender
+
+  @ApiProperty({ description: "Guard's phone" })
+  @IsPhoneNumber('NG')
+  @IsNotEmpty()
+  phone: string;
+
+  @ApiProperty({ description: "Guard's email" })
+  @IsEmail()
+  email: string;
+
+  @ApiProperty({ description: "Guard's password" })
+  @IsString()
+  @IsNotEmpty()
+  password: string;
 }

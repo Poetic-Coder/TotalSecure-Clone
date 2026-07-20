@@ -18,7 +18,7 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { AuthenticationService } from './authentication.service';
-import { BvnRegisterDto, IGreeIdpDto, RegisterCustomerDto, RegisterAgentDto } from './dtos/register.dto';
+import { BvnRegisterDto, IGreeIdpDto, RegisterCustomerDto, RegisterAgentDto, RegisterStaffDto, RegisterGuardDto } from './dtos/register.dto';
 import { OtpResponseDto, OtpDto } from './dtos/otp.dto';
 import { LoginDto } from './dtos/login.dto';
 import { UserService } from '@api/user/services/user.service';
@@ -167,5 +167,30 @@ export class AuthenticationController {
 
   }
 
+    @Post('register/staff')
+    @UseGuards(RolesGuard)
+    @Roles(AccountType.ADMIN)
+    @ApiBody({ type: RegisterStaffDto })
+    @ApiOkResponse({
+      description: 'Registered Staff',
+    })
+    public async registerStaff(@Body() payload: RegisterStaffDto) {
+      const user = await this.authService.createStaff(payload);
+
+      return `New Staff "${user.profile.firstName} ${user.profile.middleName} ${user.profile.lastName}" has been added.`;
+    }
+
+    @Post('register/guard')
+    @UseGuards(RolesGuard)
+    @Roles(AccountType.ADMIN)
+    @ApiBody({ type: RegisterGuardDto })
+    @ApiOkResponse({
+      description: 'Registered Guard',
+    })
+    public async registerGuard(@Body() payload: RegisterGuardDto) {
+      const Guard = await this.authService.createGuard(payload);
+
+      return Guard;
+    }
   
 }
