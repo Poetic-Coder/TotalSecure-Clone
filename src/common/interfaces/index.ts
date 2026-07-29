@@ -14,9 +14,14 @@ export enum Role {
 export type APP_ENV = 'development' | 'production';
 
 export interface TokenAccount {
-  id: string;             
-  accountType: AccountType; 
-  roles?: string[];       
+  id: string;
+  accountType: AccountType;
+  email: string;
+  role?: string;         // StaffRole enum value e.g. 'SUPER_ADMIN'
+  guardStatus?: string;  // GuardStatus enum value e.g. 'DEPLOYED'
+  clientType?: string;   // ClientType enum value e.g. 'ORGANIZATION'
+  clientId?: string;
+  clientRole?: string;   // 'ADMIN' | 'OPERATOR' | 'VIEWER'
 }
 
 
