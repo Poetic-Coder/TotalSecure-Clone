@@ -6,7 +6,7 @@ name: Build and deploy Node.js app to Azure Web App - dpmfb-prod-app-srvr-01
 on:
   push:
     branches:
-      - main
+      - server
   workflow_dispatch:
 
 jobs:
