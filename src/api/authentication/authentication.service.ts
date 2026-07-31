@@ -175,6 +175,7 @@ export class AuthenticationService {
 
     const tokenUserAccount = {
       id: user.id,
+      email: user.email,
       accountType,
     };
 

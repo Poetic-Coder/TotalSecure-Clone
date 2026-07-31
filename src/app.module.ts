@@ -51,12 +51,14 @@ import { ExternalMiddleware } from '@common/middlewares/external.middleware';
 import { NotificationModule } from './api/notification/notification.module';
 import { SupportModule } from '@api/support/support.module';
 import { ApiKeyModule } from '@api/apikey/apiKey.module'; 
+import { BusinessAuthModule } from '@api/business-auth/business-auth.module';
 
 
 @Module({
   imports: [
     ConfigModule.forRoot(),
     DatabaseModule,
+    BusinessAuthModule,
     AuthenticationModule,
     HashingModule,
     UserModule,
@@ -85,7 +87,7 @@ import { ApiKeyModule } from '@api/apikey/apiKey.module';
     FirebaseModule,
     NotificationModule,
     SupportModule,
-    ApiKeyModule,
+    ApiKeyModule
   ],
   controllers: [AppController],
   providers: [
@@ -123,14 +125,14 @@ export class AppModule implements NestModule {
           resave: false,
           saveUninitialized: false,
           store: new SessionStore({
-            // This uses ssl to connect to redis
             client: new Redis({
               port: this.configService.get('REDIS_PORT'),
               host: this.configService.get('REDIS_HOST'),
               password: this.configService.get('REDIS_PASSWORD'),
             }),
             logErrors: true,
-          }),
+    }),
+
         }),
       )
       .forRoutes('*')
@@ -160,6 +162,10 @@ export class AppModule implements NestModule {
         { path: `webhook/${YOUVERIFY_URL}`, method: RequestMethod.POST },
         { path: `webhook/${OKHI_URL}`, method: RequestMethod.POST },
         { path: `webhook/agent-approval`, method: RequestMethod.POST },
+        { path: 'business-auth/register', method: RequestMethod.POST },
+        { path: 'business-auth/verify', method: RequestMethod.POST },
+        { path: 'business-auth/forgot-password', method: RequestMethod.POST },
+        { path: 'business-auth/reset-password', method: RequestMethod.POST },
         // Exclude all routes that start with /EXTERNAL_PREFIX
       )
       .forRoutes('*')
@@ -177,7 +183,13 @@ export class AppModule implements NestModule {
         { path: 'auth/forget-password', method: RequestMethod.POST },
         { path: 'auth/forget-password/verify', method: RequestMethod.POST },
         { path: 'auth/new/forget-password/verify', method: RequestMethod.POST },
-        { path: 'business-authentication/new/forget-password/verify', method: RequestMethod.POST },
+        { path: 'business-auth/login', method: RequestMethod.POST },
+        { path: 'business-auth/staff/login', method: RequestMethod.POST },
+        { path: 'business-auth/register', method: RequestMethod.POST },
+        { path: 'business-auth/verify', method: RequestMethod.POST },
+        { path: 'business-auth/forgot-password', method: RequestMethod.POST },
+        { path: 'business-auth/reset-password', method: RequestMethod.POST },
+        // { path: 'business-authentication/new/forget-password/verify', method: RequestMethod.POST },
         { path: 'auth/logout', method: RequestMethod.POST },
         { path: 'auth/verify/otp/agent', method: RequestMethod.POST },
         { path: 'auth/send/otp/agent', method: RequestMethod.POST },

@@ -5,6 +5,7 @@ export enum AccountType {
   ADMIN = 'ADMIN',
   GUARD = "GUARD",
   CLIENT = "CLIENT",
+  CLIENT_STAFF = "CLIENT_STAFF"
 }
 
 export enum BusinessGender {
