@@ -18,7 +18,7 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { AuthenticationService } from './authentication.service';
-import { BvnRegisterDto, IGreeIdpDto, RegisterCustomerDto, RegisterAgentDto } from './dtos/register.dto';
+import { BvnRegisterDto, IGreeIdpDto, RegisterCustomerDto, RegisterAgentDto, RegisterStaffDto, RegisterGuardDto } from './dtos/register.dto';
 import { OtpResponseDto, OtpDto } from './dtos/otp.dto';
 import { LoginDto } from './dtos/login.dto';
 import { UserService } from '@api/user/services/user.service';
@@ -38,6 +38,7 @@ import { ApiHeaders } from '@common/decorators/defaultHeaders';
 import { getRandomString } from '@common/utils/general';
 import { OTP_EXPIRY } from '@common/constants';
 import { Cache } from 'cache-manager';
+import { GuardProfileDto } from '@api/user/dtos/guard-profile.dto';
 
 
 
@@ -69,6 +70,27 @@ export class AuthenticationController {
       userAccount: {
         ...user,
         profile: user.profile as StaffProfileDto,
+      },
+      token,
+    });
+  }
+
+  @Post('/login/guard')
+  @ApiBody({
+    description: 'Login Guard',
+    type: LoginDto,
+  })
+  public async loginGuard(@Body() payload: any) {
+    let user;
+
+     user = await this.authService.loginGuard(payload.email, payload.password);
+
+    const token = await this.authService.authenticate(user);
+    
+    return new JwtDto({
+      userAccount: {
+        ...user,
+        profile: user.profile as GuardProfileDto,
       },
       token,
     });
@@ -167,5 +189,30 @@ export class AuthenticationController {
 
   }
 
+    @Post('register/staff')
+    @UseGuards(RolesGuard)
+    @Roles(AccountType.ADMIN)
+    @ApiBody({ type: RegisterStaffDto })
+    @ApiOkResponse({
+      description: 'Registered Staff',
+    })
+    public async registerStaff(@Body() payload: RegisterStaffDto) {
+      const user = await this.authService.createStaff(payload);
+
+      return `New Staff "${user.profile.firstName} ${user.profile.middleName} ${user.profile.lastName}" has been added.`;
+    }
+
+    @Post('register/guard')
+    @UseGuards(RolesGuard)
+    @Roles(AccountType.ADMIN)
+    @ApiBody({ type: RegisterGuardDto })
+    @ApiOkResponse({
+      description: 'Registered Guard',
+    })
+    public async registerGuard(@Body() payload: RegisterGuardDto) {
+      const Guard = await this.authService.createGuard(payload);
+
+      return Guard;
+    }
   
 }

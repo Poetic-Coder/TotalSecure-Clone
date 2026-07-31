@@ -74,7 +74,8 @@ export class ApiKeyService {
 
     let user: AnyUser | null = null;
     let accountType: AccountType | null = null;
-    if (apiKey.staff) { user = apiKey.staff; accountType = AccountType.STAFF; }
+    if (apiKey.staff && apiKey.staff.role === 'SUPER_ADMIN') {user = apiKey.staff; accountType = AccountType.ADMIN}
+    else if (apiKey.staff) { user = apiKey.staff; accountType = AccountType.STAFF; }
     else if (apiKey.guard) { user = apiKey.guard; accountType = AccountType.GUARD; }
     else if (apiKey.client) { user = apiKey.client; accountType = AccountType.CLIENT; }
 
