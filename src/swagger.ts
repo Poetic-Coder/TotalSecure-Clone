@@ -16,7 +16,7 @@ export default function SwaggerInit(
 
   const configService = app.get(ConfigService);
 
-  const appName = `${configService.get("BANK_NAME")} API`;
+  const appName = `${configService.get("APP_NAME")} API`;
 
   const config = new DocumentBuilder()
     .setTitle(appName)

@@ -4,6 +4,7 @@ import { AppModule } from './app.module';
 import { ConfigService } from '@nestjs/config';
 import { Logger, RequestMethod } from '@nestjs/common';
 import { AuthenticationModule } from '@api/authentication/authentication.module';
+import { BusinessAuthModule } from '@api/business-auth/business-auth.module';
 import { UserModule } from '@api/user/user.module';
 import { useContainer } from 'class-validator';
 import { NetworkModule } from '@modules/network/network.module';
@@ -81,6 +82,7 @@ async function bootstrap() {
   const modules = [
     AppModule,
     AuthenticationModule,
+    BusinessAuthModule, 
     UserModule,
     WebhookModule,
     EventModule,
