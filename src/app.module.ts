@@ -178,6 +178,7 @@ export class AppModule implements NestModule {
         { path: 'auth/login/customer', method: RequestMethod.POST },
         { path: 'auth/login/agent', method: RequestMethod.POST },
         { path: 'auth/login/staff', method: RequestMethod.POST },
+        { path: 'auth/login/guard', method: RequestMethod.POST },
         { path: 'auth/register/agent', method: RequestMethod.POST },
         { path: 'auth/register/customer', method: RequestMethod.POST },
         { path: 'auth/forget-password', method: RequestMethod.POST },
