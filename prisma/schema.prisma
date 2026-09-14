@@ -431,6 +431,24 @@ enum ReportFormat {
   CSV
 }
 
+enum PermissionModule {
+  GUARD
+  SITE
+  CLIENT  // Includes client staff and client branch
+  SUBSCRIPTION
+  DEPLOYMENT  // Handles guard deployments
+  SHIFT // Handles Guard shifts
+  INVOICE
+  EQUIPMENT
+  INCIDENT
+  CONMMAND_CENTER   // Includes Report, Alerts and Camera
+  VEHICLE   // includes vehicle parking
+  PATROL  // Handles Patrol routes and patrol guards
+  VISITOR
+  AUDITLOG
+  NOTIFICATION
+}
+
 // ============================================================
 // subs plans
 // Controls which features each client can access.
