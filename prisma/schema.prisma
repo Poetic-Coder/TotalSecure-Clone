@@ -434,16 +434,16 @@ enum ReportFormat {
 enum PermissionModule {
   GUARD
   SITE
-  CLIENT
+  CLIENT  // Includes client staff and client branch
   SUBSCRIPTION
-  DEPLOYMENT
-  SHIFT
+  DEPLOYMENT  // Handles guard deployments
+  SHIFT // Handles Guard shifts
   INVOICE
   EQUIPMENT
   INCIDENT
-  CONMMAND_CENTER
+  CONMMAND_CENTER   // Includes Report, Alerts and Camera
   VEHICLE   // includes vehicle parking
-  PATROL
+  PATROL  // Handles Patrol routes and patrol guards
   VISITOR
   AUDITLOG
   NOTIFICATION
