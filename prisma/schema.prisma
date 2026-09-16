@@ -5,6 +5,11 @@
 // TSNL SECURITY MANAGEMENT SYSTEM (SMS)
 // Prisma Schema — v1.0
 // ============================================================
+//
+// The `Company` is as a tenant
+// root: any number of security companies can onboard and
+// subscribe to the platform, each bringing their own internal
+// Staff, Guards, Roles, Equipment pool, and book of Clients.
 
 generator client {
   provider = "prisma-client-js"
@@ -45,6 +50,15 @@ enum IdentificationCardType {
   INTERNATIONAL_PASSPORT
   NATIONAL_ID
   VOTERS_CARD
+}
+
+// ------ company (tenant) lifecycle ------
+
+enum CompanyStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  CHURNED
 }
 
 // ------ guard lifecycle------
@@ -143,6 +157,14 @@ enum StaffRole {
   CONTROL_ROOM_OPERATOR
   FINANCE_OFFICER
   ACCOUNT_MANAGER      // Manages client relationships
+}
+
+// ------ platform (cross-tenant) staff ------
+
+enum PlatformStaffRole {
+  PLATFORM_SUPER_ADMIN   // Anthropic-of-the-platform — manages all companies
+  PLATFORM_SUPPORT
+  PLATFORM_BILLING
 }
 
 // ------ shift & attendance ------
@@ -341,6 +363,7 @@ enum InvoiceStatus {
 
 enum InvoiceLineType {
   GUARD_SERVICE      // Per guard per period
+  SUBSCRIPTION_FEE   // Recurring ServicePackage fee for the period
   OVERTIME           // Extra hours billed to client
   EQUIPMENT_FEE
   MANAGEMENT_FEE
@@ -379,6 +402,13 @@ enum SubscriptionStatus {
   EXPIRED
 }
 
+enum ServiceTier {
+  BASIC
+  STANDARD
+  PREMIUM
+  CUSTOM
+}
+
 // ------ misc ------
 
 enum NotificationType {
@@ -396,6 +426,8 @@ enum NotificationType {
   DEPLOYMENT_ENDED
   GUARD_READY
   SYSTEM_ALERT
+  SUBSCRIPTION_EXPIRING   // NEW — plan/trial about to end for a Company
+  PLAN_LIMIT_REACHED      // NEW — a Company hit a plan limit (sites, guards, etc.)
 }
 
 enum AuditAction {
@@ -450,25 +482,108 @@ enum PermissionModule {
 }
 
 // ============================================================
-// subs plans
-// Controls which features each client can access.
-// Super Admin seeds plans; each client (org or individual)
-// subscribes to one plan.
+// PLATFORM STAFF
+// The people who run the platform itself, across every
+// tenant Company. Distinct from a Company's own Staff.
 // ============================================================
 
-model SubscriptionPlan {
+model PlatformStaff {
+  pk            Int               @id @default(autoincrement())
+  id            String            @unique @default(uuid()) @db.Uuid
+  email         String            @unique
+  phone         String?           @unique
+  password      String
+  role          PlatformStaffRole
+  active        ActiveStatus      @default(ACTIVE)
+  firstName     String?           @map("first_name")
+  lastName      String?           @map("last_name")
+  lastLoginAt   DateTime?         @map("last_login_at")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([pk, id])
+  @@map("platform_staff")
+}
+
+// ============================================================
+// COMPANY (TENANT ROOT)
+// A security company that has onboarded onto the platform.
+// Owns its own Staff, Guards, Roles, Equipment pool, and
+// book of Clients. This is the multi-tenancy boundary.
+// ============================================================
+
+model Company {
+  pk                 Int           @id @default(autoincrement())
+  id                 String        @unique @default(uuid()) @db.Uuid
+  name               String
+  slug               String        @unique
+  logo               String?
+  email              String        @unique
+  phone              String?       @unique
+  password           String
+  status             CompanyStatus @default(ACTIVE)
+  emailVerified      Boolean       @default(false) @map("email_verified")
+  phoneVerified      Boolean       @default(false) @map("phone_verified")
+  lastLoginAt        DateTime?     @map("last_login_at")
+
+  registrationNumber String?       @map("registration_number")
+  taxId               String?      @map("tax_id")
+  address             String?
+  city                String?
+  state               String?
+  country             String?
+  postalCode          String?      @map("postal_code")
+  currency            String       @default("NGN")
+
+  // Guard payout default — company-level default for how much of the
+  // clientRate a guard receives; individual clients/deployments may
+  // still override via Client.defaultGuardPayoutPct / GuardDeployment.guardPayoutPct
+  defaultGuardPayoutPct Float      @default(0.30) @map("default_guard_payout_pct")
+
+  // Relations — everything this tenant owns
+  subscription        CompanySubscription?
+  staff                Staff[]
+  guards               Guard[]
+  clients              Client[]
+  customRoles          Role[]
+  servicePackages      ServicePackage[]
+  equipment            Equipment[]
+  apiKeys              ApiKey[]
+  auditLogs            AuditLog[]
+  notifications        Notification[]
+  payrollRuns          PayrollRun[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([pk, id])
+  @@map("companies")
+}
+
+// ============================================================
+// PLATFORM PLANS  (level 1 billing: platform -> company)
+// Controls which features/limits each COMPANY (tenant) can
+// access on the platform. Platform admin seeds plans; each
+// company subscribes to exactly one.
+// NOT to be confused with ServicePackage, which is the
+// catalogue a company sells to its own clients.
+// ============================================================
+
+model PlatformPlan {
   pk                      Int          @id @default(autoincrement())
   id                      String       @unique @default(uuid()) @db.Uuid
   name                    String       @unique
   tier                    PlanTier
-  forClientType           ClientType?  @map("for_client_type") // null = available to both
   description             String?
   monthlyPrice            Float        @map("monthly_price")
   quarterlyPrice          Float?       @map("quarterly_price")
   annualPrice             Float?       @map("annual_price")
   currency                String       @default("NGN")
 
-  // Hard limits (null = unlimited)
+  // Hard limits (null = unlimited) — now bound a whole Company's
+  // usage across ALL of its clients/sites/guards/cameras/staff
+  maxClients              Int?         @map("max_clients")
   maxSites                Int?         @map("max_sites")
   maxGuardsDeployed       Int?         @map("max_guards_deployed")
   maxCameras              Int?         @map("max_cameras")
@@ -490,21 +605,158 @@ model SubscriptionPlan {
   hasSmsAlerts            Boolean      @default(false) @map("has_sms_alerts")
   hasEmailAlerts          Boolean      @default(true)  @map("has_email_alerts")
   hasMultiBranch          Boolean      @default(false) @map("has_multi_branch")
+  hasCustomRoles          Boolean      @default(false) @map("has_custom_roles")
   active                  Boolean      @default(true)
 
-  clientSubscriptions     ClientSubscription[]
+  companySubscriptions    CompanySubscription[]
 
   createdAt               DateTime     @default(now())
   updatedAt               DateTime     @updatedAt
 
   @@unique([pk, id])
-  @@map("subscription_plans")
+  @@map("platform_plans")
+}
+
+// Company subscription to a platform plan
+model CompanySubscription {
+  pk                 Int                @id @default(autoincrement())
+  id                 String             @unique @default(uuid()) @db.Uuid
+  status             SubscriptionStatus @default(TRIALING)
+  billingCycle       BillingCycle       @default(MONTHLY) @map("billing_cycle")
+  currentPeriodStart DateTime           @map("current_period_start")
+  currentPeriodEnd   DateTime           @map("current_period_end")
+  trialEndsAt        DateTime?          @map("trial_ends_at")
+  cancelledAt        DateTime?          @map("cancelled_at")
+  externalRef        String?            @map("external_ref")
+
+  companyPk          Int                @unique @map("company_pk")
+  companyId          String             @unique @map("company_id") @db.Uuid
+  company            Company            @relation(fields: [companyPk, companyId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+
+  planPk             Int                @map("plan_pk")
+  planId             String             @map("plan_id") @db.Uuid
+  plan               PlatformPlan       @relation(fields: [planPk, planId], references: [pk, id], onDelete: Restrict, onUpdate: Cascade)
+
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  @@unique([pk, id])
+  @@unique([companyPk, companyId])
+  @@map("company_subscriptions")
+}
+
+// ============================================================
+// SERVICE PACKAGES  (billing company -> its clients)
+// Each security company defines its OWN catalogue of guarding
+// packages to sell. Company-scoped: Firm A's "Premium" has
+// nothing to do with Firm B's "Premium".
+//
+// A package may not enable a feature the owning Company's
+// PlatformPlan does not grant — validate on create/update.
+// ============================================================
+
+model ServicePackage {
+  pk                    Int          @id @default(autoincrement())
+  id                    String       @unique @default(uuid()) @db.Uuid
+  name                  String       // company-chosen, e.g. "Estate Essential"
+  tier                  ServiceTier  @default(STANDARD)
+  description           String?
+  forClientType         ClientType?  @map("for_client_type") // null = offer to both
+
+  // Pricing — what the CLIENT pays the COMPANY, recurring, on top of
+  // (or inclusive of) per-guard GuardDeployment.clientRate billing.
+  monthlyPrice          Float        @map("monthly_price")
+  quarterlyPrice        Float?       @map("quarterly_price")
+  annualPrice           Float?       @map("annual_price")
+  currency              String       @default("NGN")
+  setupFee              Float        @default(0) @map("setup_fee")
+
+  // Whether the recurring fee already covers some guards, or whether
+  // every guard is billed separately via GuardDeployment.clientRate.
+  includedGuardCount    Int          @default(0) @map("included_guard_count")
+  billGuardsSeparately  Boolean      @default(true) @map("bill_guards_separately")
+
+  // Limits this package grants the client (null = unlimited)
+  maxSites              Int?         @map("max_sites")
+  maxCameras            Int?         @map("max_cameras")
+  maxPortalUsers        Int?         @map("max_portal_users") // ClientStaff seats
+  maxVisitorsPerMonth   Int?         @map("max_visitors_per_month")
+  storageRetentionDays  Int          @default(30) @map("storage_retention_days")
+
+  hasPatrolVisibility   Boolean      @default(true)  @map("has_patrol_visibility")
+  hasVisitorManagement  Boolean      @default(true)  @map("has_visitor_management")
+  hasVehicleManagement  Boolean      @default(true)  @map("has_vehicle_management")
+  hasIncidentPortal     Boolean      @default(true)  @map("has_incident_portal")
+  hasCctvAccess         Boolean      @default(false) @map("has_cctv_access")
+  hasLiveTracking       Boolean      @default(false) @map("has_live_tracking")
+  hasReporting          Boolean      @default(true)  @map("has_reporting")
+  hasAdvancedAnalytics  Boolean      @default(false) @map("has_advanced_analytics")
+  hasSmsAlerts          Boolean      @default(false) @map("has_sms_alerts")
+  hasEmailAlerts        Boolean      @default(true)  @map("has_email_alerts")
+  hasDedicatedManager   Boolean      @default(false) @map("has_dedicated_manager")
+  responseTimeSlaMins   Int?         @map("response_time_sla_mins")
+
+  active                Boolean      @default(true)
+  isPublic              Boolean      @default(true) @map("is_public") // show on self-signup
+
+  // Owning company (tenant)
+  companyPk             Int          @map("company_pk")
+  companyId             String       @map("company_id") @db.Uuid
+  company               Company      @relation(fields: [companyPk, companyId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+
+  clientSubscriptions   ClientSubscription[]
+
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+
+  @@unique([pk, id])
+  @@unique([companyPk, name])   // package names unique within a company only
+  @@map("service_packages")
+}
+
+// A client's subscription to one of its security company's packages.
+// The ServicePackage must belong to the same Company as the Client
+model ClientSubscription {
+  pk                 Int                @id @default(autoincrement())
+  id                 String             @unique @default(uuid()) @db.Uuid
+  status             SubscriptionStatus @default(TRIALING)
+  billingCycle       BillingCycle       @default(MONTHLY) @map("billing_cycle")
+  currentPeriodStart DateTime           @map("current_period_start")
+  currentPeriodEnd   DateTime           @map("current_period_end")
+  trialEndsAt        DateTime?          @map("trial_ends_at")
+  cancelledAt        DateTime?          @map("cancelled_at")
+  cancelReason       String?            @map("cancel_reason")
+  autoRenew          Boolean            @default(true) @map("auto_renew")
+  startedAt          DateTime           @default(now()) @map("started_at")
+  externalRef        String?            @map("external_ref")
+
+  // Price snapshot at subscribe time — package pricing may change later,
+  // but an existing subscriber keeps the agreed rate until renewal.
+  agreedPrice        Float              @map("agreed_price")
+  discountPct        Float              @default(0) @map("discount_pct")
+  currency           String             @default("NGN")
+
+  clientPk           Int                @unique @map("client_pk")
+  clientId           String             @unique @map("client_id") @db.Uuid
+  client             Client             @relation(fields: [clientPk, clientId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+
+  packagePk          Int                @map("package_pk")
+  packageId          String             @map("package_id") @db.Uuid
+  package            ServicePackage     @relation(fields: [packagePk, packageId], references: [pk, id], onDelete: Restrict, onUpdate: Cascade)
+
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  @@unique([pk, id])
+  @@unique([clientPk, clientId])
+  @@map("client_subscriptions")
 }
 
 // ============================================================
 // internal staff
-// tsnl employees — HR, Operations, Finance, etc.
-// Separate from guards and clients.
+// A company's own employees — HR, Operations, Finance, etc.
+// Scoped to exactly one Company (tenant). Separate from
+// guards, clients, and platform staff.
 // ============================================================
 
 model Staff {
@@ -520,7 +772,17 @@ model Staff {
   phoneVerified   Boolean      @default(false) @map("phone_verified")
   lastLoginAt     DateTime?    @map("last_login_at")
 
-  // Hierarchy
+  // Tenant scope
+  companyPk       Int          @map("company_pk")
+  companyId       String       @map("company_id") @db.Uuid
+  company         Company      @relation(fields: [companyPk, companyId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+
+  // Optional fine-grained custom role
+  customRolePk    Int?         @map("custom_role_pk")
+  customRoleId    String?      @map("custom_role_id") @db.Uuid
+  customRole      Role?        @relation(fields: [customRolePk, customRoleId], references: [pk, id], onDelete: SetNull, onUpdate: Cascade)
+
+  // Hierarchy (dis must remain within the same company)
   managerPk       Int?         @map("manager_pk")
   managerId       String?      @map("manager_id") @db.Uuid
   manager         Staff?       @relation("StaffHierarchy", fields: [managerPk, managerId], references: [pk, id], onDelete: SetNull, onUpdate: Cascade)
@@ -583,6 +845,8 @@ model StaffProfile {
 
 // ============================================================
 // guard
+// Employed by exactly one Company (tenant). Deployed to that
+// company's clients/sites only.
 // ============================================================
 
 model Guard {
@@ -599,6 +863,11 @@ model Guard {
   recruitedAt         DateTime           @default(now()) @map("recruited_at")
   retiredAt           DateTime?          @map("retired_at")
 
+  // Tenant scope — which security company employs this guard
+  companyPk           Int                @map("company_pk")
+  companyId           String             @map("company_id") @db.Uuid
+  company              Company           @relation(fields: [companyPk, companyId], references: [pk, id], onDelete: Restrict, onUpdate: Cascade)
+
   // Base compensation — configurable per deployment via GuardDeployment.guardPayRate
   baseSalary          Float              @default(0) @map("base_salary")
   salaryBankName      String?            @map("salary_bank_name")
@@ -611,11 +880,8 @@ model Guard {
   certifications      GuardCertification[]
   equipmentAssignments EquipmentAssignment[]
 
-  // Deployments — the core link to clients/sites
+  // Deployments — the core link to clients/sites (must be within the same company)
   deployments         GuardDeployment[]
-
-  // Operational records all reference GuardDeployment, not Guard directly
-  // (shifts, attendance, patrols are under GuardDeployment)
 
   leaveRequests       LeaveRequest[]
   overtimeRequests    OvertimeRequest[]
@@ -774,6 +1040,8 @@ model GuardKpiScore {
 
 // ============================================================
 // clients indiv and cooperates
+// Each Client belongs to exactly one Company (the security
+// firm servicing them).
 // ============================================================
 
 model Client {
@@ -782,6 +1050,11 @@ model Client {
   clientType          ClientType       @map("client_type")
   onboardingMethod    OnboardingMethod @default(SELF_SIGNUP) @map("onboarding_method")
   status              ClientStatus     @default(ACTIVE)
+
+  // Tenant scope — which security company services this client
+  companyPk            Int             @map("company_pk")
+  companyId            String          @map("company_id") @db.Uuid
+  company              Company         @relation(fields: [companyPk, companyId], references: [pk, id], onDelete: Restrict, onUpdate: Cascade)
 
   // Shared identity
   name                String           // company name OR estate/residence name
@@ -815,13 +1088,12 @@ model Client {
   ownerIdDocument     String?          @map("owner_id_document")
   ownerIdVerified     VerificationStatus @default(NOT_VERIFIED) @map("owner_id_verified")
 
-  // Billing config — per client, configurable
-  // guardPayRate is set per deployment; these are client-level defaults
+  // Billing config — per client, configurable, defaults from Company
   defaultGuardPayoutPct Float          @default(0.30) @map("default_guard_payout_pct") // e.g. 0.30 = guard gets 30% of what client pays
   invoiceDueDays      Int              @default(30) @map("invoice_due_days")
   currency            String           @default("NGN")
 
-  // Account manager from your staff
+  // Account manager — a Staff member of the SAME company
   accountManagerPk    Int?             @map("account_manager_pk")
   accountManagerId    String?          @map("account_manager_id") @db.Uuid
   accountManager      Staff?           @relation("account_manager", fields: [accountManagerPk, accountManagerId], references: [pk, id], onDelete: SetNull, onUpdate: Cascade)
@@ -847,34 +1119,6 @@ model Client {
 
   @@unique([pk, id])
   @@map("clients")
-}
-
-// Client subscription to a plan
-model ClientSubscription {
-  pk                 Int                @id @default(autoincrement())
-  id                 String             @unique @default(uuid()) @db.Uuid
-  status             SubscriptionStatus @default(TRIALING)
-  billingCycle       BillingCycle       @default(MONTHLY) @map("billing_cycle")
-  currentPeriodStart DateTime           @map("current_period_start")
-  currentPeriodEnd   DateTime           @map("current_period_end")
-  trialEndsAt        DateTime?          @map("trial_ends_at")
-  cancelledAt        DateTime?          @map("cancelled_at")
-  externalRef        String?            @map("external_ref")
-
-  clientPk           Int                @unique @map("client_pk")
-  clientId           String             @unique @map("client_id") @db.Uuid
-  client             Client             @relation(fields: [clientPk, clientId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
-
-  planPk             Int                @map("plan_pk")
-  planId             String             @map("plan_id") @db.Uuid
-  plan               SubscriptionPlan   @relation(fields: [planPk, planId], references: [pk, id], onDelete: Restrict, onUpdate: Cascade)
-
-  createdAt          DateTime           @default(now())
-  updatedAt          DateTime           @updatedAt
-
-  @@unique([pk, id])
-  @@unique([clientPk, clientId])
-  @@map("client_subscriptions")
 }
 
 // Branch — only for ORGANIZATION clients
@@ -905,7 +1149,8 @@ model ClientBranch {
 }
 
 // ClientStaff — the client's own admin/operator users
-// (different from tsnl internal Staff, these are client portal users)
+// (different from a security company's internal Staff — these
+// are client portal users, scoped via Client → Company)
 model ClientStaff {
   pk             Int          @id @default(autoincrement())
   id             String       @unique @default(uuid()) @db.Uuid
@@ -1201,9 +1446,10 @@ model OvertimeRequest {
 
 // ============================================================
 // payroll
-// Auto-generated at month end based on active GuardDeployments.
-// One PayrollRun per month. One PayrollLine per deployment.
-// HR reviews draft → approves → marks paid.
+// Auto-generated at month end based on active GuardDeployments,
+// scoped per Company (each tenant runs its own payroll).
+// One PayrollRun per company per month. One PayrollLine per
+// deployment. HR reviews draft → approves → marks paid.
 // ============================================================
 
 model PayrollRun {
@@ -1222,6 +1468,10 @@ model PayrollRun {
   approvedAt      DateTime?        @map("approved_at")
   paidAt          DateTime?        @map("paid_at")
 
+  companyPk       Int              @map("company_pk")
+  companyId       String           @map("company_id") @db.Uuid
+  company         Company          @relation(fields: [companyPk, companyId], references: [pk, id], onDelete: Restrict, onUpdate: Cascade)
+
   approvedByPk    Int?             @map("approved_by_pk")
   approvedById    String?          @map("approved_by_id") @db.Uuid
   approvedBy      Staff?           @relation("payroll_approver", fields: [approvedByPk, approvedById], references: [pk, id], onDelete: SetNull, onUpdate: Cascade)
@@ -1231,7 +1481,7 @@ model PayrollRun {
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 
-  @@unique([period])  // one run per month
+  @@unique([companyPk, period])  // one run per company per month
   @@unique([pk, id])
   @@map("payroll_runs")
 }
@@ -1366,7 +1616,8 @@ model InvoicePayment {
 
 // ============================================================
 // equipment
-// Platform-level pool. Assigned to guards, not clients.
+// Per-company pool now (each tenant maintains its own kit).
+// Assigned to guards within the same company.
 // ============================================================
 
 model Equipment {
@@ -1378,6 +1629,10 @@ model Equipment {
   condition      EquipmentCondition @default(GOOD)
   isAssigned     Boolean            @default(false) @map("is_assigned")
   notes          String?
+
+  companyPk      Int                @map("company_pk")
+  companyId      String             @map("company_id") @db.Uuid
+  company        Company            @relation(fields: [companyPk, companyId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
 
   assignments    EquipmentAssignment[]
 
@@ -1690,8 +1945,6 @@ model VisitorVisit {
   visitorId String  @map("visitor_id") @db.Uuid
   visitor   Visitor @relation(fields: [visitorPk, visitorId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
 
-  
-
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1914,21 +2167,31 @@ model CameraAlert {
 
 // ============================================================
 // roles and permission
+// Role can be a global/system role (companyPk = null, usable
+// by any tenant) or a custom role scoped to one Company.
+// Permission stays a global, platform-defined catalogue.
 // ============================================================
 
 model Role {
   pk          Int     @id @default(autoincrement())
   id          String  @unique @default(uuid()) @db.Uuid
-  name        String  @unique
+  name        String
   description String?
-  isSystem    Boolean @default(false) @map("is_system")
+  isSystem    Boolean @default(false) @map("is_system") // true = built-in, shared across all companies
+
+  // null = system/global role; set = custom role owned by that Company
+  companyPk   Int?    @map("company_pk")
+  companyId   String? @map("company_id") @db.Uuid
+  company     Company? @relation(fields: [companyPk, companyId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
 
   permissions RolePermission[]
+  staffUsingRole Staff[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([pk, id])
+  @@unique([companyPk, name])
   @@map("roles")
 }
 
@@ -2031,6 +2294,11 @@ model Notification {
   clientId String? @map("client_id") @db.Uuid
   client   Client? @relation(fields: [clientPk, clientId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
 
+  // Company-level notifications — e.g. plan limits, subscription status
+  companyPk Int?    @map("company_pk")
+  companyId String? @map("company_id") @db.Uuid
+  company   Company? @relation(fields: [companyPk, companyId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -2053,6 +2321,11 @@ model ApiKey {
   rateLimit    Int       @default(1000) @map("rate_limit")
   requestCount Int       @default(0) @map("request_count")
   resetAt      DateTime  @default(now()) @map("reset_at")
+
+  // Company-level API key (platform API access granted to the tenant as a whole)
+  companyPk Int?    @map("company_pk")
+  companyId String? @map("company_id") @db.Uuid
+  company   Company? @relation(fields: [companyPk, companyId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
 
   staffPk Int?    @map("staff_pk")
   staffId String? @map("staff_id") @db.Uuid
@@ -2092,6 +2365,11 @@ model AuditLog {
   userAgent   String?     @map("user_agent")
   metadata    Json?
 
+  // Which tenant this audit event belongs to (null = platform-level event)
+  companyPk Int?    @map("company_pk")
+  companyId String? @map("company_id") @db.Uuid
+  company   Company? @relation(fields: [companyPk, companyId], references: [pk, id], onDelete: SetNull, onUpdate: Cascade)
+
   staffPk Int?    @map("staff_pk")
   staffId String? @map("staff_id") @db.Uuid
   staff   Staff?  @relation(fields: [staffPk, staffId], references: [pk, id], onDelete: SetNull, onUpdate: Cascade)
@@ -2105,6 +2383,3 @@ model AuditLog {
   @@unique([pk, id])
   @@map("audit_logs")
 }
-
-
-
