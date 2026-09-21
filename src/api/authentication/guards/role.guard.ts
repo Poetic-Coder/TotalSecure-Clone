@@ -3,40 +3,73 @@ import {
   CanActivate,
   ExecutionContext,
   ForbiddenException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { AnyUser, JwtPayloadData } from '@common/interfaces';
+import { JwtPayloadData } from '@common/interfaces';
 import { AccountType } from '@common/enums';
+import { SecurityService } from '@modules/security/security.service';
+import { TokenType } from '@modules/security/security.interface';
+import { Request } from 'express';
 
 export const ROLES_KEY = 'roles';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
-  constructor(private reflector: Reflector) {}
+  constructor(
+    private readonly reflector: Reflector,
+    private readonly securityService: SecurityService,
+  ) {}
 
-  canActivate(context: ExecutionContext): boolean {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const requiredAccountTypes = this.reflector.getAllAndOverride<AccountType[]>(
       ROLES_KEY,
-      [context.getHandler(),
-      context.getClass()],
+      [context.getHandler(), context.getClass()],
     );
 
-    if (!requiredAccountTypes) {
+    if (!requiredAccountTypes || requiredAccountTypes.length === 0) {
       return true;
     }
 
-    const { user } = context.switchToHttp().getRequest();
-    const userWithRole = user as AnyUser & { accountType: AccountType };
+    const request = context.switchToHttp().getRequest<Request>();
 
-    if (!userWithRole || !userWithRole.accountType) {
-        return false;
+    let accountType =
+      (request.user as { accountType?: AccountType } | undefined)?.accountType;
+
+    if (!accountType) {
+      const authHeader = request.headers.authorization;
+      if (!authHeader?.startsWith('Bearer ')) {
+        throw new UnauthorizedException(
+          'Authorization header is missing or malformed.',
+        );
+      }
+
+      let payload: JwtPayloadData;
+      try {
+        payload = await this.securityService.verifyToken(
+          authHeader.split(' ')[1],
+          TokenType.ACCESS,
+        );
+      } catch (error) {
+        throw new UnauthorizedException(
+          error?.message || 'Invalid or expired token.',
+        );
+      }
+
+      accountType = payload.account?.accountType;
     }
-    const hasPermission = requiredAccountTypes.some(
-      (type) => userWithRole.accountType === type,
-    );
 
-    if (!hasPermission) {
-      throw new ForbiddenException('You do not have the required account type to access this resource.');
+    if (!accountType) {
+      throw new ForbiddenException(
+        'You do not have the required account type to access this resource.',
+      );
+    }
+
+    const allowed = requiredAccountTypes.some((type) => accountType === type);
+    if (!allowed) {
+      throw new ForbiddenException(
+        'You do not have the required account type to access this resource.',
+      );
     }
 
     return true;

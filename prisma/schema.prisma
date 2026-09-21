@@ -479,6 +479,18 @@ enum PermissionModule {
   VISITOR
   AUDITLOG
   NOTIFICATION
+  STAFF
+  ROLE
+  PAYROLL
+  COMPANY
+}
+
+// Per-user permission override on top of a role baseline.
+// GRANT = add a permission the role does not have (for this user only)
+// DENY  = remove a permission the role has (for this user only)
+enum PermissionEffect {
+  GRANT
+  DENY
 }
 
 // ============================================================
@@ -792,6 +804,7 @@ model Staff {
   apiKeys                   ApiKey[]
   notifications             Notification[]
   auditLogs                 AuditLog[]
+  permissionOverrides       StaffPermission[]
 
   // Operational responsibilities
   managedClients            Client[]               @relation("account_manager")
@@ -2203,7 +2216,8 @@ model Permission {
   action      String           // "CREATE"
   description String?
 
-  roles RolePermission[]
+  roles               RolePermission[]
+  staffOverrides      StaffPermission[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2229,6 +2243,29 @@ model RolePermission {
   @@unique([rolePk, permissionPk])
   @@unique([pk, id])
   @@map("role_permissions")
+}
+
+// Per-staff permission overrides (do not change the shared role).
+// effective = (role permissions − DENY) ∪ GRANT
+model StaffPermission {
+  pk     Int              @id @default(autoincrement())
+  id     String           @unique @default(uuid()) @db.Uuid
+  effect PermissionEffect
+
+  staffPk Int    @map("staff_pk")
+  staffId String @map("staff_id") @db.Uuid
+  staff   Staff  @relation(fields: [staffPk, staffId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+
+  permissionPk Int        @map("permission_pk")
+  permissionId String     @map("permission_id") @db.Uuid
+  permission   Permission @relation(fields: [permissionPk, permissionId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([staffPk, permissionPk])
+  @@unique([pk, id])
+  @@map("staff_permissions")
 }
 
 // ============================================================

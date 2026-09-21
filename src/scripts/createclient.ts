@@ -19,12 +19,24 @@ const argv = yargs(hideBin(process.argv))
   .option('email', { type: 'string', demandOption: true })
   .option('password', { type: 'string', demandOption: true })
   .option('name', { type: 'string', demandOption: true, description: 'Company or estate name' })
+  .option('companyId', {
+    type: 'string',
+    demandOption: true,
+    description: 'Security company (tenant) UUID',
+  })
   .option('type', { type: 'string', default: 'ORGANIZATION', description: 'ClientType' })
   .parseSync();
 
 async function main() {
   const prisma = new PrismaClient();
   const slug = generateSlug(argv.name);
+
+  const company = await prisma.company.findUnique({
+    where: { id: argv.companyId },
+  });
+  if (!company) {
+    throw new Error(`Company not found: ${argv.companyId}`);
+  }
 
   const client = await prisma.client.create({
     data: {
@@ -35,6 +47,7 @@ async function main() {
       clientType: argv.type as ClientType,
       onboardingMethod: OnboardingMethod.STAFF_ONBOARDED,
       emailVerified: true,
+      company: { connect: { id: company.id } },
     },
   });
 
@@ -42,6 +55,7 @@ async function main() {
   console.log(`ID: ${client.id}`);
   console.log(`Email: ${client.email}`);
   console.log(`Name: ${client.name}`);
+  console.log(`Company: ${company.name} (${company.id})`);
 }
 
 main().catch((e) => {

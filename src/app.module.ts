@@ -52,6 +52,7 @@ import { NotificationModule } from './api/notification/notification.module';
 import { SupportModule } from '@api/support/support.module';
 import { ApiKeyModule } from '@api/apikey/apiKey.module'; 
 import { BusinessAuthModule } from '@api/business-auth/business-auth.module';
+import { RbacModule } from '@api/rbac/rbac.module';
 
 
 @Module({
@@ -59,6 +60,7 @@ import { BusinessAuthModule } from '@api/business-auth/business-auth.module';
     ConfigModule.forRoot(),
     DatabaseModule,
     BusinessAuthModule,
+    RbacModule,
     AuthenticationModule,
     HashingModule,
     UserModule,

@@ -5,6 +5,7 @@ import {
   IsOptional,
   IsPhoneNumber,
   IsString,
+  IsUUID,
   ValidateNested,
 } from 'class-validator';
 import { isMatch } from '@common/validators/match_field';
@@ -239,6 +240,11 @@ export class RegisterStaffDto {
   @IsString()
   @IsNotEmpty()
   password: string;
+
+  @ApiProperty({ description: 'Company (tenant) UUID this staff belongs to' })
+  @IsUUID()
+  @IsNotEmpty()
+  companyId: string;
 }
 
 export class RegisterGuardDto {
@@ -280,4 +286,9 @@ export class RegisterGuardDto {
   @IsString()
   @IsNotEmpty()
   password: string;
+
+  @ApiProperty({ description: 'Company (tenant) UUID this guard belongs to' })
+  @IsUUID()
+  @IsNotEmpty()
+  companyId: string;
 }
