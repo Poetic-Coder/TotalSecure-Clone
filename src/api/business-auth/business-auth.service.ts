@@ -260,6 +260,13 @@ export class BusinessAuthService {
     const hashedPassword = await this.hashingService.hash(dto.password);
     const slug = this.generateSlug(dto.name);
 
+    const company = await this.prisma.company.findUnique({
+      where: { id: dto.companyId },
+    });
+    if (!company) {
+      throw new BadRequestException(['Company not found']);
+    }
+
     const client = await this.prisma.client.create({
       data: {
         name: dto.name,
@@ -274,6 +281,9 @@ export class BusinessAuthService {
         city: dto.city,
         state: dto.state,
         country: dto.country,
+        company: {
+          connect: { id: company.id },
+        },
       },
     });
 

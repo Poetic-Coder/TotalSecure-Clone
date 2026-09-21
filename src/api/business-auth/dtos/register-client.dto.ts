@@ -5,6 +5,7 @@ import {
   IsOptional,
   IsString,
   IsEnum,
+  IsUUID,
   Matches
 } from 'class-validator';
 import { ClientType } from '@prisma/client';
@@ -51,4 +52,12 @@ export class RegisterClientDto {
   @IsString()
   @IsOptional()
   country?: string;
+
+  @ApiProperty({
+    description: 'Security company (tenant) UUID this client is registering under',
+    example: '11111111-1111-1111-1111-111111111111',
+  })
+  @IsUUID()
+  @IsNotEmpty()
+  companyId: string;
 }

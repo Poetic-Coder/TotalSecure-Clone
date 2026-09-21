@@ -69,10 +69,16 @@ export class AuthUserInterceptor implements NestInterceptor {
       throw new UnauthorizedException('User associated with this token no longer exists.');
     }
 
+    const companyId =
+      account.companyId ??
+      ('companyId' in userEntity ? (userEntity as { companyId?: string }).companyId : undefined);
+
     request.user = {
-      ...userEntity,        
-      accountType: accountType,
-    };
+      ...userEntity,
+      accountType,
+      permissions: account.permissions ?? [],
+      companyId,
+    } as unknown as Express.Request['user'];
 
     return next.handle();
   }

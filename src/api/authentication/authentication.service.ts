@@ -15,10 +15,13 @@ import { StaffService } from '@api/user/services/staff.service';
 import { TokenType } from '@modules/security/security.interface';
 import { PrismaService } from '@database/prisma.service';
 import { JWT_EXPIRES_IN } from '@common/constants';
-import { AnyUser } from '@common/interfaces';
+import { AnyUser, TokenAccount } from '@common/interfaces';
 import { RegisterGuardDto, RegisterStaffDto } from './dtos/register.dto';
 import { GuardService } from '@api/user/services/guard.service';
 import { GuardWithProfile } from '@api/user/repositories/guard.repository';
+import { PermissionResolverService } from '@api/rbac/services/permission-resolver.service';
+import { AccountType } from '@common/enums';
+import { Guard, Staff } from '@prisma/client';
 
 @Injectable()
 export class AuthenticationService {
@@ -33,6 +36,7 @@ export class AuthenticationService {
     private readonly securityService: SecurityService,
     private readonly configService: ConfigService,
     private readonly guardService: GuardService,
+    private readonly permissionResolver: PermissionResolverService,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
   
@@ -171,13 +175,26 @@ export class AuthenticationService {
   }
 
   public async authenticate(user: AnyUser) {
-    const accountType = this.userService['getAccountType'](user);
+    const accountType = this.resolveAccountType(user);
 
-    const tokenUserAccount = {
+    const tokenUserAccount: TokenAccount = {
       id: user.id,
       email: user.email,
       accountType,
     };
+
+    if (accountType === AccountType.STAFF) {
+      const staff = user as Staff;
+      const resolved = await this.permissionResolver.resolveForStaff(staff.id);
+      tokenUserAccount.role = staff.role;
+      tokenUserAccount.companyId = staff.companyId;
+      tokenUserAccount.permissions = resolved.effective;
+    } else if (accountType === AccountType.GUARD) {
+      const guard = user as Guard;
+      tokenUserAccount.companyId = guard.companyId;
+      tokenUserAccount.guardStatus = guard.status;
+      tokenUserAccount.permissions = [];
+    }
 
     const token = await this.securityService.generateToken({
       data: {
@@ -188,6 +205,20 @@ export class AuthenticationService {
     });
 
     return token;
+  }
+
+  private resolveAccountType(user: AnyUser): AccountType {
+    // Guard has status + employeeId; Staff has role + employeeId
+    if ('status' in user && 'employeeId' in user && !('role' in user)) {
+      return AccountType.GUARD;
+    }
+    if ('role' in user && 'employeeId' in user) {
+      return AccountType.STAFF;
+    }
+    if ('clientType' in user) {
+      return AccountType.CLIENT;
+    }
+    return this.userService['getAccountType'](user) ?? AccountType.STAFF;
   }
 
 
@@ -232,6 +263,13 @@ export class AuthenticationService {
       throw new BadRequestException(['Phone number already exists']);
     }
 
+    const company = await this.prisma.company.findUnique({
+      where: { id: staff.companyId },
+    });
+    if (!company) {
+      throw new BadRequestException(['Company not found']);
+    }
+
     const hashedPassword = await this.hashingService.hash(staff.password);
 
     const newStaff = await this.staffService.create({
@@ -240,6 +278,9 @@ export class AuthenticationService {
       role: staff.role,
       password: hashedPassword,
       phone: staff.phone || '',
+      company: {
+        connect: { id: company.id },
+      },
       profile: {
         create: {
           gender: staff.gender,
@@ -268,6 +309,13 @@ export class AuthenticationService {
       throw new BadRequestException(['Phone number already exists']);
     }
 
+    const company = await this.prisma.company.findUnique({
+      where: { id: guard.companyId },
+    });
+    if (!company) {
+      throw new BadRequestException(['Company not found']);
+    }
+
     const hashedPassword = await this.hashingService.hash(guard.password);
 
     const newGuard = await this.guardService.create({
@@ -275,6 +323,9 @@ export class AuthenticationService {
       employeeId: guard.employeeId,
       password: hashedPassword,
       phone: guard.phone || '',
+      company: {
+        connect: { id: company.id },
+      },
       profile: {
         create: {
           firstName: guard.firstName,

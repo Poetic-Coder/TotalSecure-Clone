@@ -4,7 +4,11 @@ import { AccountType } from '@common/enums';
 declare global {
   namespace Express {
     export interface Request {
-      user?: AnyUser & { accountType: AccountType };
+      user?: AnyUser & {
+        accountType: AccountType;
+        permissions?: string[];
+        companyId?: string;
+      };
 
       apiKeyUser?: AnyUser & { accountType: AccountType };
 
@@ -12,6 +16,5 @@ declare global {
     }
   }
 }
-
 
 export {};

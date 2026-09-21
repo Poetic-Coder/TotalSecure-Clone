@@ -18,6 +18,8 @@ export interface TokenAccount {
   accountType: AccountType;
   email: string;
   role?: string;         // StaffRole enum value e.g. 'SUPER_ADMIN'
+  companyId?: string;    // tenant scope for Staff / Guard
+  permissions?: string[]; // effective permissions for Staff
   guardStatus?: string;  // GuardStatus enum value e.g. 'DEPLOYED'
   clientType?: string;   // ClientType enum value e.g. 'ORGANIZATION'
   clientId?: string;

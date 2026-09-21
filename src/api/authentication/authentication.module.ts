@@ -10,6 +10,7 @@ import { DatabaseModule } from '@database/database.module';
 import { SecurityModule } from '@modules/security/security.module';
 import { KycModule } from '@api/kyc/kyc.module';
 import { VirtualSwitchAIService } from '@modules/clients/clients/ai/virtualSwitchAi';
+import { RbacModule } from '@api/rbac/rbac.module';
 
 
 @Module({
@@ -20,6 +21,7 @@ import { VirtualSwitchAIService } from '@modules/clients/clients/ai/virtualSwitc
     DatabaseModule,
     SecurityModule,
     KycModule,
+    RbacModule,
   ],
   controllers: [AuthenticationController],
   providers: [
