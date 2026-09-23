@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { AuditAction, Prisma } from '@prisma/client';
 import { PrismaService } from '@database/prisma.service';
+import { AuthenticatedRequestUser } from '@common/interfaces';
 
 export type AuditLogInput = {
   action: AuditAction;
@@ -34,5 +35,24 @@ export class AuditLogService {
         staffId: input.staffId ?? undefined,
       },
     });
+  }
+
+  /** Annotate metadata with impersonatedBy when the actor is impersonating. */
+  async logForActor(actor: AuthenticatedRequestUser | null | undefined, input: AuditLogInput) {
+    const metadata =
+      actor?.impersonatedBy != null
+        ? {
+            ...(typeof input.metadata === 'object' &&
+            input.metadata !== null &&
+            !Array.isArray(input.metadata)
+              ? (input.metadata as Record<string, unknown>)
+              : {}),
+            impersonatedBy: actor.impersonatedBy,
+            actorAccountType: actor.accountType,
+            actorId: actor.id,
+          }
+        : input.metadata;
+
+    return this.log({ ...input, metadata: metadata as Prisma.InputJsonValue });
   }
 }

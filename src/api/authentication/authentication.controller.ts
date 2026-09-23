@@ -18,6 +18,7 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { AuthenticationService } from './authentication.service';
+import { AuthAccountService } from './services/auth-account.service';
 import { BvnRegisterDto, IGreeIdpDto, RegisterCustomerDto, RegisterAgentDto, RegisterStaffDto, RegisterGuardDto } from './dtos/register.dto';
 import { OtpResponseDto, OtpDto } from './dtos/otp.dto';
 import { LoginDto } from './dtos/login.dto';
@@ -26,21 +27,14 @@ import { CurrentUser } from '@common/decorators/current-user';
 import { AuthUserInterceptor } from '@common/interceptors/authenticated-account.interceptor';
 import { AnyUser } from '@common/interfaces';
 import { JwtDto } from './dtos/jwt.dto';
-import { RolesGuard } from './guards/role.guard'; // <-- Use your existing guard
+import { RolesGuard } from './guards/role.guard';
 import { Roles } from '@common/decorators/role.decorator';
-import { StaffProfileDto } from '@api/user/dtos/staff-profile.dto';
-import { AgentProfileDto } from '@api/user/dtos/agent-profile.dto';
-import { ProfileDto } from '@api/user/dtos/profile.dto';
-import { CustomerProfileDto } from '@api/user/dtos/customer-profile.dto';
 import { AccountType } from '@common/enums';
 import { ApiKeyUserGuard } from './guards/api-key-role.guard';
 import { ApiHeaders } from '@common/decorators/defaultHeaders';
 import { getRandomString } from '@common/utils/general';
 import { OTP_EXPIRY } from '@common/constants';
 import { Cache } from 'cache-manager';
-import { GuardProfileDto } from '@api/user/dtos/guard-profile.dto';
-
-
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -49,51 +43,18 @@ export class AuthenticationController {
 
   constructor(
     private readonly authService: AuthenticationService,
+    private readonly accountService: AuthAccountService,
     private readonly userService: UserService,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
 
-
   @Post('/login/staff')
   @ApiBody({
-    description: 'Login staff',
+    description: 'Deprecated — use POST /auth/login with { email, password }',
     type: LoginDto,
   })
-  public async loginStaff(@Body() payload: any) {
-    let user;
-
-     user = await this.authService.loginStaff(payload.email, payload.password);
-
-    const token = await this.authService.authenticate(user);
-    
-    return new JwtDto({
-      userAccount: {
-        ...user,
-        profile: user.profile as StaffProfileDto,
-      },
-      token,
-    });
-  }
-
-  @Post('/login/guard')
-  @ApiBody({
-    description: 'Login Guard',
-    type: LoginDto,
-  })
-  public async loginGuard(@Body() payload: any) {
-    let user;
-
-     user = await this.authService.loginGuard(payload.email, payload.password);
-
-    const token = await this.authService.authenticate(user);
-    
-    return new JwtDto({
-      userAccount: {
-        ...user,
-        profile: user.profile as GuardProfileDto,
-      },
-      token,
-    });
+  public async loginStaff(@Body() payload: { email: string; password: string }) {
+    return this.accountService.loginShared(payload.email, payload.password);
   }
 
   
@@ -191,7 +152,7 @@ export class AuthenticationController {
 
     @Post('register/staff')
     @UseGuards(RolesGuard)
-    @Roles(AccountType.ADMIN)
+    @Roles(AccountType.COMPANY)
     @ApiBody({ type: RegisterStaffDto })
     @ApiOkResponse({
       description: 'Registered Staff',
@@ -204,7 +165,7 @@ export class AuthenticationController {
 
     @Post('register/guard')
     @UseGuards(RolesGuard)
-    @Roles(AccountType.ADMIN)
+    @Roles(AccountType.COMPANY)
     @ApiBody({ type: RegisterGuardDto })
     @ApiOkResponse({
       description: 'Registered Guard',

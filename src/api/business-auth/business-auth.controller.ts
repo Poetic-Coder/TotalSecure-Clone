@@ -1,70 +1,124 @@
-import { Controller, Post, Body } from '@nestjs/common';
-import { ApiTags, ApiBody } from '@nestjs/swagger';
-import { BusinessAuthService } from './business-auth.service';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  GoneException,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  ApiBody,
+  ApiGoneResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
+import { PrismaService } from '@database/prisma.service';
+import { AccountType } from '@common/enums';
+import { AuthAccountService } from '@api/authentication/services/auth-account.service';
+import { AuthRateLimitGuard } from '@api/authentication/guards/auth-rate-limit.guard';
+import { AuthRateLimit } from '@api/authentication/decorators/auth-rate-limit.decorator';
 import { BusinessLoginDto } from './dtos/login.dto';
 import { RegisterClientDto } from './dtos/register-client.dto';
-import { VerifyOtpDto } from './dtos/verify-otp.dto';
 import { ForgotPasswordDto } from './dtos/forgot-password.dto';
 import { ResetPasswordDto } from './dtos/reset-password.dto';
 
 @ApiTags('Business Authentication')
 @Controller('business-auth')
+@UseGuards(AuthRateLimitGuard)
 export class BusinessAuthController {
   constructor(
-    private readonly businessAuthService: BusinessAuthService,
+    private readonly accounts: AuthAccountService,
+    private readonly prisma: PrismaService,
   ) {}
 
   @Post('login')
-  @ApiBody({
-    description: 'Login for Client (the business itself)',
-    type: BusinessLoginDto,
+  @AuthRateLimit({ key: 'biz-login', points: 20, durationSec: 60 })
+  @ApiOperation({
+    summary: 'Deprecated — use POST /auth/login',
+    deprecated: true,
   })
+  @ApiBody({ type: BusinessLoginDto })
   async loginClient(@Body() dto: BusinessLoginDto) {
-    return this.businessAuthService.loginClient(dto);
+    return this.accounts.loginShared(dto.email, dto.password);
   }
 
   @Post('staff/login')
-  @ApiBody({
-    description: 'Login for ClientStaff (client portal users)',
-    type: BusinessLoginDto,
+  @AuthRateLimit({ key: 'biz-staff-login', points: 20, durationSec: 60 })
+  @ApiOperation({
+    summary: 'Deprecated — use POST /auth/login/client-staff',
+    deprecated: true,
   })
+  @ApiBody({ type: BusinessLoginDto })
   async loginClientStaff(@Body() dto: BusinessLoginDto) {
-    return this.businessAuthService.loginClientStaff(dto);
+    return this.accounts.loginClientStaff(dto.email, dto.password);
   }
 
   @Post('register')
-  @ApiBody({
-    description: 'Register a new client (self-signup)',
-    type: RegisterClientDto,
+  @AuthRateLimit({ key: 'biz-register', points: 10, durationSec: 60 })
+  @ApiOperation({
+    summary:
+      'Deprecated — prefer POST /auth/register/client with domain',
+    deprecated: true,
   })
+  @ApiBody({ type: RegisterClientDto })
   async register(@Body() dto: RegisterClientDto) {
-    return this.businessAuthService.registerClient(dto);
+    const company = await this.prisma.company.findUnique({
+      where: { id: dto.companyId },
+    });
+    if (!company) {
+      throw new BadRequestException(['Company not found']);
+    }
+    return this.accounts.registerClient({
+      domain: company.domain,
+      name: dto.name,
+      email: dto.email,
+      password: dto.password,
+      phone: dto.phone,
+      clientType: dto.clientType,
+      city: dto.city,
+      state: dto.state,
+      country: dto.country,
+    });
   }
 
-@Post('verify')
-@ApiBody({
-  description: 'Verify email or phone with OTP. Pass either email or phone, not both.',
-  type: VerifyOtpDto,
-})
-async verifyOtp(@Body() dto: VerifyOtpDto) {
-  return this.businessAuthService.verifyOtp(dto);
-}
+  @Post('verify')
+  @ApiOperation({
+    summary: 'Removed — use company approval instead',
+    deprecated: true,
+  })
+  @ApiGoneResponse({
+    description: 'OTP verify removed. Clients activate via company approval.',
+  })
+  async verifyOtp() {
+    throw new GoneException(
+      'OTP verify has been removed. Self-signup clients stay PENDING_APPROVAL until the company approves them at POST /companies/clients/:id/approve.',
+    );
+  }
 
   @Post('forgot-password')
-  @ApiBody({
-    description: 'Request a password reset OTP',
-    type: ForgotPasswordDto,
-  })
+  @AuthRateLimit({ key: 'biz-forgot', points: 5, durationSec: 60 })
+  @ApiOperation({ deprecated: true, summary: 'Deprecated — use /auth/forgot-password' })
+  @ApiBody({ type: ForgotPasswordDto })
   async forgotPassword(@Body() dto: ForgotPasswordDto) {
-    return this.businessAuthService.forgotPassword(dto);
+    if (!dto.email) {
+      throw new BadRequestException(['Email is required']);
+    }
+    return this.accounts.forgotPassword(dto.email, AccountType.CLIENT);
   }
 
   @Post('reset-password')
-  @ApiBody({
-    description: 'Reset password using OTP',
-    type: ResetPasswordDto,
-  })
+  @AuthRateLimit({ key: 'biz-reset', points: 5, durationSec: 60 })
+  @ApiOperation({ deprecated: true, summary: 'Deprecated — use /auth/reset-password' })
+  @ApiBody({ type: ResetPasswordDto })
   async resetPassword(@Body() dto: ResetPasswordDto) {
-    return this.businessAuthService.resetPassword(dto);
+    if (!dto.email) {
+      throw new BadRequestException(['Email is required']);
+    }
+    return this.accounts.resetPassword(
+      dto.email,
+      AccountType.CLIENT,
+      dto.otp,
+      dto.newPassword,
+    );
   }
 }

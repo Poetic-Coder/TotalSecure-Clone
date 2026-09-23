@@ -20,14 +20,58 @@ export default function SwaggerInit(
 
   const config = new DocumentBuilder()
     .setTitle(appName)
-    .setDescription(`API documentation for ${appName}`)
-    .setVersion('1.0')
-    .addBearerAuth()
+    .setDescription(
+      [
+        `API documentation for ${appName}.`,
+        '',
+        '## Authentication (v2)',
+        '- Base path: `/api/v1`',
+        '- Public auth routes do **not** require `x-api-key`.',
+        '- Protected routes require `Authorization: Bearer <accessToken>` and usually `x-api-key`.',
+        '- Access token TTL: ~30 minutes. Use `/auth/refresh` with `refreshToken`.',
+        '- Shared login: `POST /auth/login` with `{ email, password }` — account type is auto-detected.',
+        '- Platform login is separate: `POST /auth/platform/login`.',
+        '- Client self-signup uses white-label `domain` (not `companyId`).',
+        '- New companies/clients start as `PENDING_APPROVAL` until approved.',
+        '',
+        '## Deprecated',
+        '- Prefer `/auth/*` over `/business-auth/*`.',
+        '- `POST /business-auth/verify` returns 410 Gone.',
+      ].join('\n'),
+    )
+    .setVersion('2.0')
+    .addBearerAuth(
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        description: 'Access token from login / refresh / impersonate',
+      },
+      'bearer',
+    )
+    .addApiKey(
+      {
+        type: 'apiKey',
+        in: 'header',
+        name: 'x-api-key',
+        description: 'Required on most protected routes (not public auth)',
+      },
+      'api-key',
+    )
+    .addTag('Authentication', 'Unified login, register, session, MFA, password')
+    .addTag('Platform', 'Platform staff admin, company approval, impersonation')
+    .addTag('Company', 'Company admin: staff, clients, approvals')
+    .addTag(
+      'Business Authentication',
+      'Deprecated legacy client routes — prefer Authentication',
+    )
     .build();
 
   const customOptions: SwaggerCustomOptions = {
     swaggerOptions: {
       persistAuthorization: true,
+      tagsSorter: 'alpha',
+      operationsSorter: 'alpha',
     },
     customSiteTitle: appName,
     useGlobalPrefix: false,

@@ -1,6 +1,11 @@
 import { forwardRef, Module } from '@nestjs/common';
 import { AuthenticationService } from './authentication.service';
 import { AuthenticationController } from './authentication.controller';
+import { AuthSessionController } from './controllers/auth-session.controller';
+import { PlatformAdminController } from './controllers/platform-admin.controller';
+import { CompanyAdminController } from './controllers/company-admin.controller';
+import { AuthSessionService } from './services/auth-session.service';
+import { AuthAccountService } from './services/auth-account.service';
 import { HashingModule } from '@modules/hashing/hashing.module';
 import { UserModule } from '@api/user/user.module';
 import { ConfigModule } from '@nestjs/config';
@@ -11,7 +16,9 @@ import { SecurityModule } from '@modules/security/security.module';
 import { KycModule } from '@api/kyc/kyc.module';
 import { VirtualSwitchAIService } from '@modules/clients/clients/ai/virtualSwitchAi';
 import { RbacModule } from '@api/rbac/rbac.module';
-
+import { AuthUserInterceptor } from '@common/interceptors/authenticated-account.interceptor';
+import { AuthRateLimitGuard } from './guards/auth-rate-limit.guard';
+import { ImpersonationAuditInterceptor } from './interceptors/impersonation-audit.interceptor';
 
 @Module({
   imports: [
@@ -21,11 +28,21 @@ import { RbacModule } from '@api/rbac/rbac.module';
     DatabaseModule,
     SecurityModule,
     KycModule,
-    RbacModule,
+    forwardRef(() => RbacModule),
   ],
-  controllers: [AuthenticationController],
+  controllers: [
+    AuthSessionController,
+    PlatformAdminController,
+    CompanyAdminController,
+    AuthenticationController,
+  ],
   providers: [
     AuthenticationService,
+    AuthSessionService,
+    AuthAccountService,
+    AuthUserInterceptor,
+    AuthRateLimitGuard,
+    ImpersonationAuditInterceptor,
     VirtualSwitchAIService,
     {
       provide: APP_GUARD,
@@ -35,7 +52,11 @@ import { RbacModule } from '@api/rbac/rbac.module';
   ],
   exports: [
     AuthenticationService,
-    VirtualSwitchAIService
-  ]
+    AuthSessionService,
+    AuthAccountService,
+    AuthUserInterceptor,
+    AuthRateLimitGuard,
+    VirtualSwitchAIService,
+  ],
 })
-export class AuthenticationModule { }
+export class AuthenticationModule {}

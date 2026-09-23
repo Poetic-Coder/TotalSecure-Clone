@@ -55,9 +55,11 @@ enum IdentificationCardType {
 // ------ company (tenant) lifecycle ------
 
 enum CompanyStatus {
+  PENDING_APPROVAL
   ACTIVE
   INACTIVE
   SUSPENDED
+  REJECTED
   CHURNED
 }
 
@@ -124,9 +126,11 @@ enum IndividualAccountType {
 }
 
 enum ClientStatus {
+  PENDING_APPROVAL
   ACTIVE
   INACTIVE
   SUSPENDED
+  REJECTED
   CHURNED
 }
 
@@ -441,6 +445,7 @@ enum AuditAction {
   EXPORT
   APPROVE
   REJECT
+  IMPERSONATE
 }
 
 enum ReportType {
@@ -510,6 +515,9 @@ model PlatformStaff {
   firstName     String?           @map("first_name")
   lastName      String?           @map("last_name")
   lastLoginAt   DateTime?         @map("last_login_at")
+  mfaEnabled    Boolean           @default(false) @map("mfa_enabled")
+
+  companyAssignments PlatformStaffAssignment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -530,14 +538,21 @@ model Company {
   id                 String        @unique @default(uuid()) @db.Uuid
   name               String
   slug               String        @unique
+  domain             String        @unique
   logo               String?
+  brandName          String?       @map("brand_name")
+  primaryColor       String?       @map("primary_color")
+  supportEmail       String?       @map("support_email")
   email              String        @unique
   phone              String?       @unique
   password           String
-  status             CompanyStatus @default(ACTIVE)
+  status             CompanyStatus @default(PENDING_APPROVAL)
   emailVerified      Boolean       @default(false) @map("email_verified")
   phoneVerified      Boolean       @default(false) @map("phone_verified")
   lastLoginAt        DateTime?     @map("last_login_at")
+  mfaEnabled         Boolean       @default(false) @map("mfa_enabled")
+  rejectedAt         DateTime?     @map("rejected_at")
+  rejectReason       String?       @map("reject_reason")
 
   registrationNumber String?       @map("registration_number")
   taxId               String?      @map("tax_id")
@@ -565,6 +580,7 @@ model Company {
   auditLogs            AuditLog[]
   notifications        Notification[]
   payrollRuns          PayrollRun[]
+  platformAssignments  PlatformStaffAssignment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -783,6 +799,7 @@ model Staff {
   emailVerified   Boolean      @default(false) @map("email_verified")
   phoneVerified   Boolean      @default(false) @map("phone_verified")
   lastLoginAt     DateTime?    @map("last_login_at")
+  mfaEnabled      Boolean      @default(false) @map("mfa_enabled")
 
   // Tenant scope
   companyPk       Int          @map("company_pk")
@@ -873,6 +890,7 @@ model Guard {
   emailVerified       Boolean            @default(false) @map("email_verified")
   phoneVerified       Boolean            @default(false) @map("phone_verified")
   lastLoginAt         DateTime?          @map("last_login_at")
+  mfaEnabled          Boolean            @default(false) @map("mfa_enabled")
   recruitedAt         DateTime           @default(now()) @map("recruited_at")
   retiredAt           DateTime?          @map("retired_at")
 
@@ -1062,7 +1080,7 @@ model Client {
   id                  String           @unique @default(uuid()) @db.Uuid
   clientType          ClientType       @map("client_type")
   onboardingMethod    OnboardingMethod @default(SELF_SIGNUP) @map("onboarding_method")
-  status              ClientStatus     @default(ACTIVE)
+  status              ClientStatus     @default(PENDING_APPROVAL)
 
   // Tenant scope — which security company services this client
   companyPk            Int             @map("company_pk")
@@ -1079,6 +1097,9 @@ model Client {
   emailVerified       Boolean          @default(false) @map("email_verified")
   phoneVerified       Boolean          @default(false) @map("phone_verified")
   lastLoginAt         DateTime?        @map("last_login_at")
+  mfaEnabled          Boolean          @default(false) @map("mfa_enabled")
+  rejectedAt          DateTime?        @map("rejected_at")
+  rejectReason        String?          @map("reject_reason")
 
   // Address
   address             String?
@@ -1174,6 +1195,7 @@ model ClientStaff {
   active         ActiveStatus @default(ACTIVE)
   emailVerified  Boolean      @default(false) @map("email_verified")
   lastLoginAt    DateTime?    @map("last_login_at")
+  mfaEnabled     Boolean      @default(false) @map("mfa_enabled")
 
   clientPk       Int          @map("client_pk")
   clientId       String       @map("client_id") @db.Uuid
@@ -2419,4 +2441,51 @@ model AuditLog {
 
   @@unique([pk, id])
   @@map("audit_logs")
+}
+
+// ============================================================
+// platform staff <-> company assignment (impersonation gate)
+// ============================================================
+
+model PlatformStaffAssignment {
+  pk Int    @id @default(autoincrement())
+  id String @unique @default(uuid()) @db.Uuid
+
+  platformStaffPk Int           @map("platform_staff_pk")
+  platformStaffId String        @map("platform_staff_id") @db.Uuid
+  platformStaff   PlatformStaff @relation(fields: [platformStaffPk, platformStaffId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+
+  companyPk Int     @map("company_pk")
+  companyId String  @map("company_id") @db.Uuid
+  company   Company @relation(fields: [companyPk, companyId], references: [pk, id], onDelete: Cascade, onUpdate: Cascade)
+
+  assignedByPk Int?    @map("assigned_by_pk")
+  assignedById String? @map("assigned_by_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([platformStaffPk, companyPk])
+  @@unique([pk, id])
+  @@map("platform_staff_assignments")
+}
+
+// ============================================================
+// refresh tokens (revocable sessions)
+// ============================================================
+
+model RefreshToken {
+  pk             Int       @id @default(autoincrement())
+  id             String    @unique @default(uuid()) @db.Uuid
+  tokenHash      String    @unique @map("token_hash")
+  accountType    String    @map("account_type")
+  accountId      String    @map("account_id") @db.Uuid
+  expiresAt      DateTime  @map("expires_at")
+  revokedAt      DateTime? @map("revoked_at")
+  impersonatedBy String?   @map("impersonated_by") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([accountType, accountId])
+  @@unique([pk, id])
+  @@map("refresh_tokens")
 }

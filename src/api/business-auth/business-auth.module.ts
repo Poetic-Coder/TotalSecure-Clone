@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { BusinessAuthService } from './business-auth.service';
 import { BusinessAuthController } from './business-auth.controller';
 import { BusinessAuthGuard } from './guards/business-auth.guard';
@@ -7,6 +7,7 @@ import { HashingModule } from '@modules/hashing/hashing.module';
 import { DatabaseModule } from '@database/database.module';
 import { SecurityModule } from '@modules/security/security.module';
 import { ConfigModule } from '@nestjs/config';
+import { AuthenticationModule } from '@api/authentication/authentication.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { ConfigModule } from '@nestjs/config';
     HashingModule,
     DatabaseModule,
     SecurityModule,
+    forwardRef(() => AuthenticationModule),
   ],
   controllers: [BusinessAuthController],
   providers: [

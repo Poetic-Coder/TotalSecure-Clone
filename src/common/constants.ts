@@ -67,6 +67,9 @@ export const QR_CODE_EXPIRY = minutesToMilliseconds(0);
 export const BUMP_CODE_EXPIRY = minutesToMilliseconds(5);
 
 export const JWT_EXPIRES_IN = '7d';
+export const JWT_ACCESS_EXPIRES_IN = '30m';
+export const JWT_REFRESH_EXPIRES_IN_DAYS = 7;
+export const JWT_MFA_EXPIRES_IN = '10m';
 
 export const INTERSWITCH_CARD_UPDATE_URL = 'cardUpdate';
 export const INTERSWITCH_CARD_UPDATE_SIGNATURE = 'x-interswitch-card-update-signature';

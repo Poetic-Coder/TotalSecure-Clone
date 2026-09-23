@@ -29,7 +29,7 @@ export class BusinessAuthGuard implements CanActivate {
       );
 
       const businessTypes = [
-        AccountType.ADMIN, 
+        AccountType.COMPANY,
         AccountType.CLIENT,
         AccountType.CLIENT_STAFF,
       ];

@@ -147,9 +147,10 @@ export class UserService {
   }
 
   private getAccountType(user: AnyUser): AccountType | null {
-      if ('employeeId' in user) return AccountType.STAFF;
-      if ('agentCode' in user) return AccountType.AGENT;
-      if ('loyaltyPoints' in user) return AccountType.CUSTOMER;
+      if ('employeeId' in user && 'role' in user) return AccountType.STAFF;
+      if ('employeeId' in user && 'status' in user) return AccountType.GUARD;
+      if ('clientType' in user) return AccountType.CLIENT;
+      if ('domain' in user) return AccountType.COMPANY;
       return null;
   }
 }

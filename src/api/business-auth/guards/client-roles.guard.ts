@@ -25,10 +25,12 @@ export class ClientRolesGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
     const user = request.user;
 
-  // ADMIN bypasses all client role checks
-if (user.accountType === AccountType.ADMIN) {
-  return true;
-}
+    if (
+      user.accountType === AccountType.COMPANY ||
+      user.accountType === AccountType.PLATFORM_STAFF
+    ) {
+      return true;
+    }
 
 // CLIENT account itself has no role restriction
 if (user.accountType === AccountType.CLIENT) {
