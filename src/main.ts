@@ -3,9 +3,11 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 import { ConfigService } from '@nestjs/config';
 import { Logger, RequestMethod } from '@nestjs/common';
-import { AuthenticationModule } from '@api/authentication/authentication.module';
-import { BusinessAuthModule } from '@api/business-auth/business-auth.module';
-import { UserModule } from '@api/user/user.module';
+import { PlatformModule } from '@api/platform/platform.module';
+import { CompanyModule } from '@api/company/company.module';
+import { ClientModule } from '@api/client/client.module';
+import { CommonFilesModule } from '@api/common/files/common-files.module';
+import { SupportModule } from '@api/support/support.module';
 import { useContainer } from 'class-validator';
 import { NetworkModule } from '@modules/network/network.module';
 import * as bodyParser from 'body-parser';
@@ -67,7 +69,7 @@ async function bootstrap() {
 
   app.setGlobalPrefix('api/v1', {
     exclude: [{ path: `/queues`, method: RequestMethod.ALL }],
-  })
+  });
 
   // Solution for entity to large:
   // https://stackoverflow.com/questions/52783959/nest-js-request-entity-too-large-payloadtoolargeerror-request-entity-too-larg
@@ -81,9 +83,11 @@ async function bootstrap() {
 
   const modules = [
     AppModule,
-    AuthenticationModule,
-    BusinessAuthModule, 
-    UserModule,
+    PlatformModule,
+    CompanyModule,
+    ClientModule,
+    CommonFilesModule,
+    SupportModule,
     WebhookModule,
     EventModule,
     KycModule,
