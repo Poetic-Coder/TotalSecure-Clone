@@ -8,9 +8,7 @@ import {
 } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { DatabaseModule } from '@database/database.module';
-import { AuthenticationModule } from '@api/authentication/authentication.module';
 import { HashingModule } from './modules/hashing/hashing.module';
-import { UserModule } from './api/user/user.module';
 import * as session from 'express-session';
 import * as RedisStore from 'connect-redis';
 import Redis from '@redis/index';
@@ -22,9 +20,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { CoreModule } from 'src/core/core.module';
 import { NetworkModule } from '@modules/network/network.module';
 import { ApiKeyMiddleware } from '@common/middlewares/api.middleware';
-import {
-  AuthenticationMiddleware,
-} from '@common/middlewares/auth.middleware';
+import { AuthenticationMiddleware } from '@common/middlewares/auth.middleware';
 import { ApiClientModule } from '@modules/clients/clients.module';
 import {
   APPZONE_WEBHOOK_URL,
@@ -50,20 +46,23 @@ import { FirebaseModule } from '@modules/firebase/firebase.module';
 import { ExternalMiddleware } from '@common/middlewares/external.middleware';
 import { NotificationModule } from './api/notification/notification.module';
 import { SupportModule } from '@api/support/support.module';
-import { ApiKeyModule } from '@api/apikey/apiKey.module'; 
-import { BusinessAuthModule } from '@api/business-auth/business-auth.module';
-import { RbacModule } from '@api/rbac/rbac.module';
-
+import { ApiKeyModule } from '@api/apikey/apiKey.module';
+import { CommonAuthModule } from '@api/common/auth/common-auth.module';
+import { CommonFilesModule } from '@api/common/files/common-files.module';
+import { PlatformModule } from '@api/platform/platform.module';
+import { CompanyModule } from '@api/company/company.module';
+import { ClientModule } from '@api/client/client.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot(),
     DatabaseModule,
-    BusinessAuthModule,
-    RbacModule,
-    AuthenticationModule,
+    CommonAuthModule,
+    CommonFilesModule,
+    PlatformModule,
+    CompanyModule,
+    ClientModule,
     HashingModule,
-    UserModule,
     BackgroundModule,
     NetworkModule,
     BullModule.forRootAsync({
@@ -74,10 +73,9 @@ import { RbacModule } from '@api/rbac/rbac.module';
       route: '/queues',
       adapter: ExpressAdapter,
       boardOptions: {
-        uiConfig: {boardTitle: "Test"},
-        
-      }
-      }),
+        uiConfig: { boardTitle: 'Test' },
+      },
+    }),
     AdminUiModule,
     CoreModule,
     ApiClientModule,
@@ -89,7 +87,7 @@ import { RbacModule } from '@api/rbac/rbac.module';
     FirebaseModule,
     NotificationModule,
     SupportModule,
-    ApiKeyModule
+    ApiKeyModule,
   ],
   controllers: [AppController],
   providers: [
@@ -120,6 +118,32 @@ export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     const SessionStore = RedisStore(session);
 
+    const publicAuthExcludes = [
+      { path: 'platform/auth/login', method: RequestMethod.POST },
+      { path: 'platform/auth/refresh', method: RequestMethod.POST },
+      { path: 'platform/auth/logout', method: RequestMethod.POST },
+      { path: 'platform/auth/forgot-password', method: RequestMethod.POST },
+      { path: 'platform/auth/reset-password', method: RequestMethod.POST },
+      { path: 'platform/auth/mfa/verify', method: RequestMethod.POST },
+      { path: 'company/auth/login', method: RequestMethod.POST },
+      { path: 'company/auth/guard/login', method: RequestMethod.POST },
+      { path: 'company/auth/register', method: RequestMethod.POST },
+      { path: 'company/auth/branding', method: RequestMethod.GET },
+      { path: 'company/auth/refresh', method: RequestMethod.POST },
+      { path: 'company/auth/logout', method: RequestMethod.POST },
+      { path: 'company/auth/forgot-password', method: RequestMethod.POST },
+      { path: 'company/auth/reset-password', method: RequestMethod.POST },
+      { path: 'company/auth/mfa/verify', method: RequestMethod.POST },
+      { path: 'client/auth/login', method: RequestMethod.POST },
+      { path: 'client/auth/register', method: RequestMethod.POST },
+      { path: 'client/auth/refresh', method: RequestMethod.POST },
+      { path: 'client/auth/logout', method: RequestMethod.POST },
+      { path: 'client/auth/forgot-password', method: RequestMethod.POST },
+      { path: 'client/auth/reset-password', method: RequestMethod.POST },
+      { path: 'client/auth/mfa/verify', method: RequestMethod.POST },
+      { path: 'client/portal/login', method: RequestMethod.POST },
+    ];
+
     consumer
       .apply(
         session({
@@ -133,17 +157,13 @@ export class AppModule implements NestModule {
               password: this.configService.get('REDIS_PASSWORD'),
             }),
             logErrors: true,
-    }),
-
+          }),
         }),
       )
       .forRoutes('*')
 
-      // Api Key Middleware
       .apply(ApiKeyMiddleware)
       .exclude(
-        //{ path: 'transfer/interbank-test', method: RequestMethod.POST },
-        //{ path: 'thebank/name-enquiry', method: RequestMethod.POST },
         { path: `queues`, method: RequestMethod.ALL },
         {
           path: `webhook/${VERIFY_ME_WEBHOOK_URL}`,
@@ -160,94 +180,36 @@ export class AppModule implements NestModule {
         { path: `api/(.*)`, method: RequestMethod.ALL },
         { path: `queues/(.*)`, method: RequestMethod.ALL },
         { path: `admin-dashboard/(.*)`, method: RequestMethod.ALL },
-        { path: `webhook/${INTERSWITCH_CARD_UPDATE_URL}`, method: RequestMethod.POST },
+        {
+          path: `webhook/${INTERSWITCH_CARD_UPDATE_URL}`,
+          method: RequestMethod.POST,
+        },
         { path: `webhook/${YOUVERIFY_URL}`, method: RequestMethod.POST },
         { path: `webhook/${OKHI_URL}`, method: RequestMethod.POST },
         { path: `webhook/agent-approval`, method: RequestMethod.POST },
-        { path: 'business-auth/register', method: RequestMethod.POST },
-        { path: 'business-auth/verify', method: RequestMethod.POST },
-        { path: 'business-auth/forgot-password', method: RequestMethod.POST },
-        { path: 'business-auth/reset-password', method: RequestMethod.POST },
-        // Exclude all routes that start with /EXTERNAL_PREFIX
+        ...publicAuthExcludes,
       )
       .forRoutes('*')
 
-      // Authentication Middleware
       .apply(AuthenticationMiddleware)
       .exclude(
-        //{ path: 'transfer/interbank-test', method: RequestMethod.POST },
         { path: `queues`, method: RequestMethod.ALL },
-        { path: 'auth/login/customer', method: RequestMethod.POST },
-        { path: 'auth/login/agent', method: RequestMethod.POST },
-        { path: 'auth/login/staff', method: RequestMethod.POST },
-        { path: 'auth/login/guard', method: RequestMethod.POST },
-        { path: 'auth/register/agent', method: RequestMethod.POST },
-        { path: 'auth/register/customer', method: RequestMethod.POST },
-        { path: 'auth/forget-password', method: RequestMethod.POST },
-        { path: 'auth/forget-password/verify', method: RequestMethod.POST },
-        { path: 'auth/new/forget-password/verify', method: RequestMethod.POST },
-        { path: 'business-auth/login', method: RequestMethod.POST },
-        { path: 'business-auth/staff/login', method: RequestMethod.POST },
-        { path: 'business-auth/register', method: RequestMethod.POST },
-        { path: 'business-auth/verify', method: RequestMethod.POST },
-        { path: 'business-auth/forgot-password', method: RequestMethod.POST },
-        { path: 'business-auth/reset-password', method: RequestMethod.POST },
-        // { path: 'business-authentication/new/forget-password/verify', method: RequestMethod.POST },
-        { path: 'auth/logout', method: RequestMethod.POST },
-        { path: 'auth/verify/otp/agent', method: RequestMethod.POST },
-        { path: 'auth/send/otp/agent', method: RequestMethod.POST },
-        { path: 'auth/new/register-with-phone-bvn', method: RequestMethod.POST },
-        { path: 'auth/dynamic-validation', method: RequestMethod.POST },
-        { path: 'auth/verify-liveness', method: RequestMethod.POST },
+        ...publicAuthExcludes,
         { path: 'file-upload/upload/single', method: RequestMethod.POST },
         { path: 'file-upload/upload/multiple', method: RequestMethod.POST },
-        { path: 'auth/test-bvn/:code', method: RequestMethod.POST },
-        { path: 'auth/nibss-igree-idp', method: RequestMethod.GET },
         { path: 'kyc/get-states', method: RequestMethod.GET },
         { path: 'kyc/get-lgas/*', method: RequestMethod.GET },
-
-        // Exclude all routes that start with /admin
-        //{ path: `${ADMIN_PREFIX}/(.*)`, method: RequestMethod.ALL },
         { path: `admin-dashboard/(.*)`, method: RequestMethod.ALL },
-
-        // Exclude all routes that start with /workspace
         { path: `${WORKSPACE_PREFIX}/(.*)`, method: RequestMethod.ALL },
-
-        // Exclude all routes that start with /app
         { path: `app/(.*)`, method: RequestMethod.ALL },
-
-        // Exclude all routes that start with /network
         { path: `network/(.*)`, method: RequestMethod.ALL },
-
-        // Exclude all routes that start with /webhook
         { path: `webhook/(.*)`, method: RequestMethod.ALL },
-
-        // Exclude all routes that start with /events
         { path: `events/(.*)`, method: RequestMethod.ALL },
-
-        // Except all routes that start with /api
         { path: `api/(.*)`, method: RequestMethod.ALL },
-
         { path: `queues/(.*)`, method: RequestMethod.ALL },
-
-        // Exclude all routes that start with /EXTERNAL_PREFIX
       )
       .forRoutes('*')
 
-      /* Admin Middleware
-      .apply(AdminMiddleware)
-      .exclude({ path: `${ADMIN_PREFIX}/login`, method: RequestMethod.POST })
-      .forRoutes(
-        // for only admin routes
-        { path: `${ADMIN_PREFIX}/*`, method: RequestMethod.ALL },
-      ) 
-
-      // Workspace Middleware
-      .apply(WorkspaceMiddleware)
-      .forRoutes(`${WORKSPACE_PREFIX}/*`)
-      */
-
-      // External Middleware
       .apply(ExternalMiddleware);
-    }
+  }
 }

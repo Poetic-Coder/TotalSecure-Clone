@@ -2,7 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import {
   PERMISSION_CATALOGUE,
   SYSTEM_ROLE_SEEDS,
-} from '../src/api/rbac/constants/permission-catalogue';
+} from '../src/api/company/rbac/constants/permission-catalogue';
 
 const prisma = new PrismaClient();
 

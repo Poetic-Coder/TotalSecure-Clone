@@ -3,7 +3,6 @@ import { BullModule } from '@nestjs/bull';
 import { BackgroundService } from './background.service';
 import { QUEUES } from './constants';
 import { DatabaseModule } from '@database/database.module';
-import { UserModule } from '@api/user/user.module';
 import { ApiClientModule } from '@modules/clients/clients.module';
 
 import { EventModule } from '@api/events/events.module';
@@ -83,7 +82,6 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
       }
       
     ),
-    forwardRef(() => UserModule),
     forwardRef(() => ApiClientModule),
     forwardRef(() => EventModule),
     KycModule,

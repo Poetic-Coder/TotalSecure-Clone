@@ -18,8 +18,7 @@
       "@common/*": ["src/common/*"],
       "@database/*": ["src/database/*"],
       "@modules/*": ["src/modules/*"],
-      "@redis/*": ["src/redis/*"],
-      "@repositories/*": ["src/api/user/repositories/*"]
+      "@redis/*": ["src/redis/*"]
     },
     "incremental": true,
     "skipLibCheck": true,

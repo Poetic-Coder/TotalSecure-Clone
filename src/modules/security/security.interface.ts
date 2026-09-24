@@ -10,6 +10,8 @@ export type TokenData = {
 export enum TokenType {
   RESET_PASSWORD = 'RESET_PASSWORD',
   ACCESS = 'ACCESS',
+  REFRESH = 'REFRESH',
+  MFA_CHALLENGE = 'MFA_CHALLENGE',
 }
 
 export interface GenerateTokenArgs {
