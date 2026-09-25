@@ -1,26 +1,16 @@
 /*
-  Warnings:
+  Multi-tenant migration (data-safe for non-empty UAT/prod).
 
-  - You are about to drop the column `plan_id` on the `client_subscriptions` table. All the data in the column will be lost.
-  - You are about to drop the column `plan_pk` on the `client_subscriptions` table. All the data in the column will be lost.
-  - You are about to drop the `subscription_plans` table. If the table is not empty, all the data it contains will be lost.
-  - A unique constraint covering the columns `[company_pk,period]` on the table `payroll_runs` will be added. If there are existing duplicate values, this will fail.
-  - A unique constraint covering the columns `[company_pk,name]` on the table `roles` will be added. If there are existing duplicate values, this will fail.
-  - Added the required column `agreed_price` to the `client_subscriptions` table without a default value. This is not possible if the table is not empty.
-  - Added the required column `package_id` to the `client_subscriptions` table without a default value. This is not possible if the table is not empty.
-  - Added the required column `package_pk` to the `client_subscriptions` table without a default value. This is not possible if the table is not empty.
-  - Added the required column `company_id` to the `clients` table without a default value. This is not possible if the table is not empty.
-  - Added the required column `company_pk` to the `clients` table without a default value. This is not possible if the table is not empty.
-  - Added the required column `company_id` to the `equipment` table without a default value. This is not possible if the table is not empty.
-  - Added the required column `company_pk` to the `equipment` table without a default value. This is not possible if the table is not empty.
-  - Added the required column `company_id` to the `guards` table without a default value. This is not possible if the table is not empty.
-  - Added the required column `company_pk` to the `guards` table without a default value. This is not possible if the table is not empty.
-  - Added the required column `company_id` to the `payroll_runs` table without a default value. This is not possible if the table is not empty.
-  - Added the required column `company_pk` to the `payroll_runs` table without a default value. This is not possible if the table is not empty.
-  - Added the required column `company_id` to the `staff` table without a default value. This is not possible if the table is not empty.
-  - Added the required column `company_pk` to the `staff` table without a default value. This is not possible if the table is not empty.
+  Failed originally with:
+    ERROR: column "company_id" of relation "clients" contains null values
+  because Prisma added NOT NULL tenant columns in one step on tables that
+  already had rows.
 
+  Fix: create companies first → seed a legacy company → add nullable
+  tenant columns → backfill → SET NOT NULL. Same pattern for
+  client_subscriptions package columns.
 */
+
 -- CreateEnum
 CREATE TYPE "CompanyStatus" AS ENUM ('ACTIVE', 'INACTIVE', 'SUSPENDED', 'CHURNED');
 
@@ -36,80 +26,32 @@ CREATE TYPE "PermissionModule" AS ENUM ('GUARD', 'SITE', 'CLIENT', 'SUBSCRIPTION
 -- AlterEnum
 ALTER TYPE "InvoiceLineType" ADD VALUE 'SUBSCRIPTION_FEE';
 
--- AlterEnum
--- This migration adds more than one value to an enum.
--- With PostgreSQL versions 11 and earlier, this is not possible
--- in a single migration. This can be worked around by creating
--- multiple migrations, each migration adding only one value to
--- the enum.
-
-
 ALTER TYPE "NotificationType" ADD VALUE 'SUBSCRIPTION_EXPIRING';
 ALTER TYPE "NotificationType" ADD VALUE 'PLAN_LIMIT_REACHED';
 
 -- DropForeignKey
-ALTER TABLE "client_subscriptions" DROP CONSTRAINT "client_subscriptions_plan_pk_plan_id_fkey";
+ALTER TABLE "client_subscriptions" DROP CONSTRAINT IF EXISTS "client_subscriptions_plan_pk_plan_id_fkey";
 
 -- DropIndex
-DROP INDEX "payroll_runs_period_key";
+DROP INDEX IF EXISTS "payroll_runs_period_key";
 
 -- DropIndex
-DROP INDEX "roles_name_key";
+DROP INDEX IF EXISTS "roles_name_key";
 
--- AlterTable
-ALTER TABLE "api_keys" ADD COLUMN     "company_id" UUID,
-ADD COLUMN     "company_pk" INTEGER;
+-- Optional tenant columns
+ALTER TABLE "api_keys" ADD COLUMN "company_id" UUID,
+ADD COLUMN "company_pk" INTEGER;
 
--- AlterTable
-ALTER TABLE "audit_logs" ADD COLUMN     "company_id" UUID,
-ADD COLUMN     "company_pk" INTEGER;
+ALTER TABLE "audit_logs" ADD COLUMN "company_id" UUID,
+ADD COLUMN "company_pk" INTEGER;
 
--- AlterTable
-ALTER TABLE "client_subscriptions" DROP COLUMN "plan_id",
-DROP COLUMN "plan_pk",
-ADD COLUMN     "agreed_price" DOUBLE PRECISION NOT NULL,
-ADD COLUMN     "auto_renew" BOOLEAN NOT NULL DEFAULT true,
-ADD COLUMN     "cancel_reason" TEXT,
-ADD COLUMN     "currency" TEXT NOT NULL DEFAULT 'NGN',
-ADD COLUMN     "discount_pct" DOUBLE PRECISION NOT NULL DEFAULT 0,
-ADD COLUMN     "package_id" UUID NOT NULL,
-ADD COLUMN     "package_pk" INTEGER NOT NULL,
-ADD COLUMN     "started_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE "notifications" ADD COLUMN "company_id" UUID,
+ADD COLUMN "company_pk" INTEGER;
 
--- AlterTable
-ALTER TABLE "clients" ADD COLUMN     "company_id" UUID NOT NULL,
-ADD COLUMN     "company_pk" INTEGER NOT NULL;
+ALTER TABLE "roles" ADD COLUMN "company_id" UUID,
+ADD COLUMN "company_pk" INTEGER;
 
--- AlterTable
-ALTER TABLE "equipment" ADD COLUMN     "company_id" UUID NOT NULL,
-ADD COLUMN     "company_pk" INTEGER NOT NULL;
-
--- AlterTable
-ALTER TABLE "guards" ADD COLUMN     "company_id" UUID NOT NULL,
-ADD COLUMN     "company_pk" INTEGER NOT NULL;
-
--- AlterTable
-ALTER TABLE "notifications" ADD COLUMN     "company_id" UUID,
-ADD COLUMN     "company_pk" INTEGER;
-
--- AlterTable
-ALTER TABLE "payroll_runs" ADD COLUMN     "company_id" UUID NOT NULL,
-ADD COLUMN     "company_pk" INTEGER NOT NULL;
-
--- AlterTable
-ALTER TABLE "roles" ADD COLUMN     "company_id" UUID,
-ADD COLUMN     "company_pk" INTEGER;
-
--- AlterTable
-ALTER TABLE "staff" ADD COLUMN     "company_id" UUID NOT NULL,
-ADD COLUMN     "company_pk" INTEGER NOT NULL,
-ADD COLUMN     "custom_role_id" UUID,
-ADD COLUMN     "custom_role_pk" INTEGER;
-
--- DropTable
-DROP TABLE "subscription_plans";
-
--- CreateTable
+-- Create tenant tables BEFORE attaching existing rows
 CREATE TABLE "platform_staff" (
     "pk" SERIAL NOT NULL,
     "id" UUID NOT NULL,
@@ -127,7 +69,6 @@ CREATE TABLE "platform_staff" (
     CONSTRAINT "platform_staff_pkey" PRIMARY KEY ("pk")
 );
 
--- CreateTable
 CREATE TABLE "companies" (
     "pk" SERIAL NOT NULL,
     "id" UUID NOT NULL,
@@ -156,7 +97,6 @@ CREATE TABLE "companies" (
     CONSTRAINT "companies_pkey" PRIMARY KEY ("pk")
 );
 
--- CreateTable
 CREATE TABLE "platform_plans" (
     "pk" SERIAL NOT NULL,
     "id" UUID NOT NULL,
@@ -195,7 +135,6 @@ CREATE TABLE "platform_plans" (
     CONSTRAINT "platform_plans_pkey" PRIMARY KEY ("pk")
 );
 
--- CreateTable
 CREATE TABLE "company_subscriptions" (
     "pk" SERIAL NOT NULL,
     "id" UUID NOT NULL,
@@ -216,7 +155,6 @@ CREATE TABLE "company_subscriptions" (
     CONSTRAINT "company_subscriptions_pkey" PRIMARY KEY ("pk")
 );
 
--- CreateTable
 CREATE TABLE "service_packages" (
     "pk" SERIAL NOT NULL,
     "id" UUID NOT NULL,
@@ -258,110 +196,167 @@ CREATE TABLE "service_packages" (
     CONSTRAINT "service_packages_pkey" PRIMARY KEY ("pk")
 );
 
--- CreateIndex
+-- Seed legacy company for existing rows (password = ChangeMe123! — rotate after migrate)
+INSERT INTO "companies" (
+  "id", "name", "slug", "email", "password", "status", "createdAt", "updatedAt"
+) VALUES (
+  '00000000-0000-4000-8000-000000000001',
+  'Legacy Migration Company',
+  'legacy-migration',
+  'legacy-migration@system.local',
+  '$2b$10$J8AcGBuSvjftoDWWTJoTheCg5mHW1d7URZPTdtU4AVNjJZzoxFlKa',
+  'ACTIVE',
+  CURRENT_TIMESTAMP,
+  CURRENT_TIMESTAMP
+);
+
+INSERT INTO "service_packages" (
+  "id", "name", "tier", "description", "monthly_price", "currency",
+  "company_pk", "company_id", "createdAt", "updatedAt"
+)
+SELECT
+  '00000000-0000-4000-8000-000000000002',
+  'Legacy Default Package',
+  'STANDARD',
+  'Auto-created during multi-tenant migration for existing subscriptions',
+  0,
+  'NGN',
+  c."pk",
+  c."id",
+  CURRENT_TIMESTAMP,
+  CURRENT_TIMESTAMP
+FROM "companies" c
+WHERE c."slug" = 'legacy-migration';
+
+-- Add required tenant columns as NULLABLE first
+ALTER TABLE "clients" ADD COLUMN "company_id" UUID,
+ADD COLUMN "company_pk" INTEGER;
+
+ALTER TABLE "equipment" ADD COLUMN "company_id" UUID,
+ADD COLUMN "company_pk" INTEGER;
+
+ALTER TABLE "guards" ADD COLUMN "company_id" UUID,
+ADD COLUMN "company_pk" INTEGER;
+
+ALTER TABLE "payroll_runs" ADD COLUMN "company_id" UUID,
+ADD COLUMN "company_pk" INTEGER;
+
+ALTER TABLE "staff" ADD COLUMN "company_id" UUID,
+ADD COLUMN "company_pk" INTEGER,
+ADD COLUMN "custom_role_id" UUID,
+ADD COLUMN "custom_role_pk" INTEGER;
+
+-- Backfill existing rows onto the legacy company
+UPDATE "clients" c
+SET "company_pk" = co."pk", "company_id" = co."id"
+FROM "companies" co
+WHERE co."slug" = 'legacy-migration' AND c."company_id" IS NULL;
+
+UPDATE "staff" s
+SET "company_pk" = co."pk", "company_id" = co."id"
+FROM "companies" co
+WHERE co."slug" = 'legacy-migration' AND s."company_id" IS NULL;
+
+UPDATE "guards" g
+SET "company_pk" = co."pk", "company_id" = co."id"
+FROM "companies" co
+WHERE co."slug" = 'legacy-migration' AND g."company_id" IS NULL;
+
+UPDATE "equipment" e
+SET "company_pk" = co."pk", "company_id" = co."id"
+FROM "companies" co
+WHERE co."slug" = 'legacy-migration' AND e."company_id" IS NULL;
+
+UPDATE "payroll_runs" p
+SET "company_pk" = co."pk", "company_id" = co."id"
+FROM "companies" co
+WHERE co."slug" = 'legacy-migration' AND p."company_id" IS NULL;
+
+-- Now enforce NOT NULL
+ALTER TABLE "clients" ALTER COLUMN "company_id" SET NOT NULL,
+ALTER COLUMN "company_pk" SET NOT NULL;
+
+ALTER TABLE "equipment" ALTER COLUMN "company_id" SET NOT NULL,
+ALTER COLUMN "company_pk" SET NOT NULL;
+
+ALTER TABLE "guards" ALTER COLUMN "company_id" SET NOT NULL,
+ALTER COLUMN "company_pk" SET NOT NULL;
+
+ALTER TABLE "payroll_runs" ALTER COLUMN "company_id" SET NOT NULL,
+ALTER COLUMN "company_pk" SET NOT NULL;
+
+ALTER TABLE "staff" ALTER COLUMN "company_id" SET NOT NULL,
+ALTER COLUMN "company_pk" SET NOT NULL;
+
+-- client_subscriptions: drop old plan FKs/cols, add package cols safely
+ALTER TABLE "client_subscriptions" DROP COLUMN IF EXISTS "plan_id",
+DROP COLUMN IF EXISTS "plan_pk";
+
+ALTER TABLE "client_subscriptions"
+ADD COLUMN "agreed_price" DOUBLE PRECISION,
+ADD COLUMN "auto_renew" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN "cancel_reason" TEXT,
+ADD COLUMN "currency" TEXT NOT NULL DEFAULT 'NGN',
+ADD COLUMN "discount_pct" DOUBLE PRECISION NOT NULL DEFAULT 0,
+ADD COLUMN "package_id" UUID,
+ADD COLUMN "package_pk" INTEGER,
+ADD COLUMN "started_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;
+
+UPDATE "client_subscriptions" cs
+SET
+  "package_pk" = sp."pk",
+  "package_id" = sp."id",
+  "agreed_price" = COALESCE(cs."agreed_price", sp."monthly_price", 0)
+FROM "service_packages" sp
+WHERE sp."name" = 'Legacy Default Package' AND cs."package_id" IS NULL;
+
+ALTER TABLE "client_subscriptions" ALTER COLUMN "agreed_price" SET NOT NULL,
+ALTER COLUMN "package_id" SET NOT NULL,
+ALTER COLUMN "package_pk" SET NOT NULL;
+
+DROP TABLE IF EXISTS "subscription_plans";
+
+-- Indexes
 CREATE UNIQUE INDEX "platform_staff_id_key" ON "platform_staff"("id");
-
--- CreateIndex
 CREATE UNIQUE INDEX "platform_staff_email_key" ON "platform_staff"("email");
-
--- CreateIndex
 CREATE UNIQUE INDEX "platform_staff_phone_key" ON "platform_staff"("phone");
-
--- CreateIndex
 CREATE UNIQUE INDEX "platform_staff_pk_id_key" ON "platform_staff"("pk", "id");
 
--- CreateIndex
 CREATE UNIQUE INDEX "companies_id_key" ON "companies"("id");
-
--- CreateIndex
 CREATE UNIQUE INDEX "companies_slug_key" ON "companies"("slug");
-
--- CreateIndex
 CREATE UNIQUE INDEX "companies_email_key" ON "companies"("email");
-
--- CreateIndex
 CREATE UNIQUE INDEX "companies_phone_key" ON "companies"("phone");
-
--- CreateIndex
 CREATE UNIQUE INDEX "companies_pk_id_key" ON "companies"("pk", "id");
 
--- CreateIndex
 CREATE UNIQUE INDEX "platform_plans_id_key" ON "platform_plans"("id");
-
--- CreateIndex
 CREATE UNIQUE INDEX "platform_plans_name_key" ON "platform_plans"("name");
-
--- CreateIndex
 CREATE UNIQUE INDEX "platform_plans_pk_id_key" ON "platform_plans"("pk", "id");
 
--- CreateIndex
 CREATE UNIQUE INDEX "company_subscriptions_id_key" ON "company_subscriptions"("id");
-
--- CreateIndex
 CREATE UNIQUE INDEX "company_subscriptions_company_pk_key" ON "company_subscriptions"("company_pk");
-
--- CreateIndex
 CREATE UNIQUE INDEX "company_subscriptions_company_id_key" ON "company_subscriptions"("company_id");
-
--- CreateIndex
 CREATE UNIQUE INDEX "company_subscriptions_pk_id_key" ON "company_subscriptions"("pk", "id");
-
--- CreateIndex
 CREATE UNIQUE INDEX "company_subscriptions_company_pk_company_id_key" ON "company_subscriptions"("company_pk", "company_id");
 
--- CreateIndex
 CREATE UNIQUE INDEX "service_packages_id_key" ON "service_packages"("id");
-
--- CreateIndex
 CREATE UNIQUE INDEX "service_packages_pk_id_key" ON "service_packages"("pk", "id");
-
--- CreateIndex
 CREATE UNIQUE INDEX "service_packages_company_pk_name_key" ON "service_packages"("company_pk", "name");
 
--- CreateIndex
 CREATE UNIQUE INDEX "payroll_runs_company_pk_period_key" ON "payroll_runs"("company_pk", "period");
-
--- CreateIndex
 CREATE UNIQUE INDEX "roles_company_pk_name_key" ON "roles"("company_pk", "name");
 
--- AddForeignKey
+-- Foreign keys
 ALTER TABLE "company_subscriptions" ADD CONSTRAINT "company_subscriptions_company_pk_company_id_fkey" FOREIGN KEY ("company_pk", "company_id") REFERENCES "companies"("pk", "id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE "company_subscriptions" ADD CONSTRAINT "company_subscriptions_plan_pk_plan_id_fkey" FOREIGN KEY ("plan_pk", "plan_id") REFERENCES "platform_plans"("pk", "id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE "service_packages" ADD CONSTRAINT "service_packages_company_pk_company_id_fkey" FOREIGN KEY ("company_pk", "company_id") REFERENCES "companies"("pk", "id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE "client_subscriptions" ADD CONSTRAINT "client_subscriptions_package_pk_package_id_fkey" FOREIGN KEY ("package_pk", "package_id") REFERENCES "service_packages"("pk", "id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE "staff" ADD CONSTRAINT "staff_company_pk_company_id_fkey" FOREIGN KEY ("company_pk", "company_id") REFERENCES "companies"("pk", "id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE "staff" ADD CONSTRAINT "staff_custom_role_pk_custom_role_id_fkey" FOREIGN KEY ("custom_role_pk", "custom_role_id") REFERENCES "roles"("pk", "id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE "guards" ADD CONSTRAINT "guards_company_pk_company_id_fkey" FOREIGN KEY ("company_pk", "company_id") REFERENCES "companies"("pk", "id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE "clients" ADD CONSTRAINT "clients_company_pk_company_id_fkey" FOREIGN KEY ("company_pk", "company_id") REFERENCES "companies"("pk", "id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE "payroll_runs" ADD CONSTRAINT "payroll_runs_company_pk_company_id_fkey" FOREIGN KEY ("company_pk", "company_id") REFERENCES "companies"("pk", "id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE "equipment" ADD CONSTRAINT "equipment_company_pk_company_id_fkey" FOREIGN KEY ("company_pk", "company_id") REFERENCES "companies"("pk", "id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE "roles" ADD CONSTRAINT "roles_company_pk_company_id_fkey" FOREIGN KEY ("company_pk", "company_id") REFERENCES "companies"("pk", "id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE "notifications" ADD CONSTRAINT "notifications_company_pk_company_id_fkey" FOREIGN KEY ("company_pk", "company_id") REFERENCES "companies"("pk", "id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE "api_keys" ADD CONSTRAINT "api_keys_company_pk_company_id_fkey" FOREIGN KEY ("company_pk", "company_id") REFERENCES "companies"("pk", "id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE "audit_logs" ADD CONSTRAINT "audit_logs_company_pk_company_id_fkey" FOREIGN KEY ("company_pk", "company_id") REFERENCES "companies"("pk", "id") ON DELETE SET NULL ON UPDATE CASCADE;
