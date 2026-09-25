@@ -52,6 +52,7 @@ jobs:
         env:
            DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
+          npx prisma migrate resolve --rolled-back "20260916154733_update_multi_tenant"
           npx prisma generate
           yarn run build
           npx prisma migrate deploy
