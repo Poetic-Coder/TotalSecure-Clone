@@ -33,6 +33,7 @@ import { RolesGuard } from './guards/role.guard';
     },
   ],
   exports: [
+    SecurityModule,
     AuthSessionService,
     AuthAccountService,
     AuthUserInterceptor,
