@@ -436,7 +436,7 @@ export class DashboardService {
     return siteCards;
   }
 
-  /**
+    /**
    * 5. Invoicing & Account Manager Summary
    */
   public async billingSummary(clientId: string) {
@@ -448,8 +448,9 @@ export class DashboardService {
           subscription: {
             select: {
               status: true,
-              startDate: true,
-              endDate: true,
+              startedAt: true,
+              currentPeriodStart: true,
+              currentPeriodEnd: true,
               package: {
                 select: { name: true, tier: true },
               },
@@ -457,10 +458,14 @@ export class DashboardService {
           },
           accountManager: {
             select: {
-              firstName: true,
-              lastName: true,
               email: true,
               phone: true,
+              profile: {
+                select: {
+                  firstName: true,
+                  lastName: true,
+                },
+              },
             },
           },
         },
@@ -501,14 +506,21 @@ export class DashboardService {
       currency: client?.currency ?? 'NGN',
       activeSubscription: client?.subscription
         ? {
-            packageName: client.subscription.package?.name ?? 'Standard Security',
+            packageName:
+              client.subscription.package?.name ?? 'Standard Security',
             status: client.subscription.status,
-            renewalDate: client.subscription.endDate,
+            renewalDate: client.subscription.currentPeriodEnd,
           }
         : null,
       accountManager: client?.accountManager
         ? {
-            name: `${client.accountManager.firstName} ${client.accountManager.lastName}`.trim(),
+            name:
+              [
+                client.accountManager.profile?.firstName,
+                client.accountManager.profile?.lastName,
+              ]
+                .filter(Boolean)
+                .join(' ') || 'Assigned Account Manager',
             email: client.accountManager.email,
             phone: client.accountManager.phone,
           }
