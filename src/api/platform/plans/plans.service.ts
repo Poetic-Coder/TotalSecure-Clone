@@ -92,13 +92,31 @@ export class PlansService {
   // ─── UPDATE ────────────────────────────────────────────────
 
   async update(id: string, dto: UpdatePlatformPlanDto) {
-    await this.findOne(id);
+  const existing = await this.findOne(id);
+
+    if (dto.name && dto.name !== existing.name) {
+      const duplicate = await this.prisma.platformPlan.findUnique({
+      where: { name: dto.name },
+        });
+      if (duplicate) {
+        throw new ConflictException([
+          `A plan named "${dto.name}" already exists`,
+        ]);
+      }
+    }
+
+    if (dto.monthlyPrice === undefined && dto.quarterlyPrice === undefined && dto.annualPrice === undefined) {
+      throw new ConflictException([
+        'At least one billing cycle price must be provided',
+      ]);
+   }
 
     return this.prisma.platformPlan.update({
       where: { id },
       data: { ...dto },
     });
   }
+
 
   // ─── SOFT DELETE ───────────────────────────────────────────
 

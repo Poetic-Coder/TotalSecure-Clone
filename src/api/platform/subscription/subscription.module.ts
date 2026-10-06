@@ -4,13 +4,11 @@ import { SubscriptionController } from './subscription.controller';
 import { SubscriptionCron } from './subscription.cron';
 import { DatabaseModule } from '@database/database.module';
 import { ConfigModule } from '@nestjs/config';
-import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
     DatabaseModule,
-    ConfigModule,
-    ScheduleModule.forRoot(),
+    ConfigModule
   ],
   controllers: [SubscriptionController],
   providers: [SubscriptionService, SubscriptionCron],

@@ -7,17 +7,25 @@ import {
   Body,
   Param,
   UseGuards,
+  UseInterceptors
 } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiSecurity, ApiOperation, ApiForbiddenResponse } from '@nestjs/swagger';
 import { PlansService } from './plans.service';
 import { CreatePlatformPlanDto } from './dto/create-plan.dto';
 import { UpdatePlatformPlanDto } from './dto/update-plan.dto';
+import { AuthUserInterceptor } from '@api/common/auth/interceptors/authenticated-account.interceptor';
+import { RolesGuard } from '@api/common/auth/guards/role.guard';
+import { Roles } from '@common/decorators/role.decorator';
+import { AccountType } from '@common/enums';
 
-// Note: Replace with actual PlatformStaff guard when auth is built
-// @UseGuards(PlatformStaffGuard)
 
 @ApiTags('Platform — Plans')
-@ApiBearerAuth()
+@ApiBearerAuth('bearer')
+@ApiSecurity('api-key')
+@UseInterceptors(AuthUserInterceptor)
+@UseGuards(RolesGuard)
+@Roles(AccountType.PLATFORM_STAFF)
+@ApiForbiddenResponse({ description: 'Not platform staff / not super admin' })
 @Controller('platform/plans')
 export class PlansController {
   constructor(private readonly plansService: PlansService) {}

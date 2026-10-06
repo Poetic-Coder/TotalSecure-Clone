@@ -6,7 +6,7 @@ import {
 import { PrismaService } from '@database/prisma.service';
 import { ConfigService } from '@nestjs/config';
 import { addDays, differenceInDays, isAfter } from 'date-fns';
-import { SubscriptionStatus } from '@prisma/client';
+import { CompanyStatus, SubscriptionStatus } from '@prisma/client';
 import { EmailService } from '@modules/network/services/email/email.service';
 
 @Injectable()
@@ -24,7 +24,8 @@ export class SubscriptionService {
   }
 
   private getWarningDays(): number[] {
-    const raw = this.configService.get<string>('TRIAL_EXPIRY_WARNING_DAYS') ?? '7,2';
+    const raw =
+      this.configService.get<string>('TRIAL_EXPIRY_WARNING_DAYS') ?? '7,2';
     return raw.split(',').map(Number);
   }
 
@@ -45,9 +46,7 @@ export class SubscriptionService {
     });
 
     if (!freePlan) {
-      throw new BadRequestException([
-        'No FREE plan found — please seed platform plans first',
-      ]);
+      throw new BadRequestException(['No FREE plan found']);
     }
 
     const trialDays = this.getTrialDays();
@@ -107,10 +106,7 @@ export class SubscriptionService {
     const isPastDue = subscription.status === SubscriptionStatus.PAST_DUE;
 
     // Calculate days remaining
-    const daysRemaining = differenceInDays(
-      subscription.currentPeriodEnd,
-      now,
-    );
+    const daysRemaining = differenceInDays(subscription.currentPeriodEnd, now);
 
     // Check if trial has expired but status not yet updated
     const trialExpired =
@@ -190,14 +186,17 @@ export class SubscriptionService {
       orderBy: { createdAt: 'desc' },
     });
 
-   // Filter out companies that are not ACTIVE
-  const activeSubs = subscriptions.filter(
-    (sub) => sub.company.status === 'ACTIVE'
-  );
+    // Filter to include ACTIVE, PENDING_APPROVAL, and SUSPENDED
+    const visibleSubs = subscriptions.filter(
+      (sub) =>
+        sub.company.status === CompanyStatus.ACTIVE ||
+        sub.company.status === CompanyStatus.PENDING_APPROVAL ||
+        sub.company.status === CompanyStatus.SUSPENDED,
+    );
 
     const now = new Date();
 
-    return activeSubs.map((sub) => {
+    return visibleSubs.map((sub) => {
       const daysRemaining = differenceInDays(sub.currentPeriodEnd, now);
       const trialExpired =
         sub.status === 'TRIALING' &&
@@ -272,6 +271,11 @@ export class SubscriptionService {
       include: { plan: true },
     });
 
+    await this.prisma.company.update({
+      where: { id: companyId },
+      data: { status: CompanyStatus.ACTIVE },
+    });
+
     return {
       message: `Company successfully upgraded to ${plan.name}`,
       subscription,
@@ -297,33 +301,42 @@ export class SubscriptionService {
 
     if (expiredTrials.length === 0) return;
 
-    // Expire them all
-    await this.prisma.companySubscription.updateMany({
-      where: {
-        status: SubscriptionStatus.TRIALING,
-        trialEndsAt: { lte: now },
-      },
-      data: { status: SubscriptionStatus.EXPIRED },
-    });
+    await this.prisma.$transaction(async (tx) => {
+      // Expire subscriptions
+      await tx.companySubscription.updateMany({
+        where: {
+          status: SubscriptionStatus.TRIALING,
+          trialEndsAt: { lte: now },
+        },
+        data: { status: SubscriptionStatus.EXPIRED },
+      });
 
-    // Lock the company accounts
-    const companyIds = expiredTrials.map((s) => s.company.id);
-    await this.prisma.company.updateMany({
-      where: { id: { in: companyIds } },
-      data: { status: 'SUSPENDED' },
+      // Suspend companies linked to those subscriptions
+      const companyIds = expiredTrials.map((s) => s.company.id);
+      await tx.company.updateMany({
+        where: { id: { in: companyIds } },
+        data: { status: CompanyStatus.SUSPENDED },
+      });
     });
 
     // Send expiry emails
     for (const sub of expiredTrials) {
       try {
-        await this.emailService.sendCustomEmail(sub.company.email, {
-          subject: 'Your TSNL trial has expired',
-          full_name: sub.company.name,
-          title: 'Trial Expired',
-          content: `Your ${this.getTrialDays()}-day free trial has ended. Please contact us to upgrade your plan and restore access to your account.`,
-        }, []);
+        await this.emailService.sendCustomEmail(
+          sub.company.email,
+          {
+            subject: 'Your TSNL trial has expired',
+            full_name: sub.company.name,
+            title: 'Trial Expired',
+            content: `Your ${this.getTrialDays()}-day free trial has ended. Please contact us to upgrade your plan and restore access to your account.`,
+          },
+          [],
+        );
       } catch (error) {
-        console.error(`Failed to send expiry email to ${sub.company.email}:`, error.message);
+        console.error(
+          `Failed to send expiry email to ${sub.company.email}:`,
+          error.message,
+        );
       }
     }
 
@@ -340,27 +353,39 @@ export class SubscriptionService {
       const targetDate = addDays(now, days);
 
       // Find trials expiring in exactly X days
-      const expiringSubscriptions = await this.prisma.companySubscription.findMany({
-        where: {
-          status: SubscriptionStatus.TRIALING,
-          trialEndsAt: {
-            gte: new Date(targetDate.setHours(0, 0, 0, 0)),
-            lte: new Date(targetDate.setHours(23, 59, 59, 999)),
+      const expiringSubscriptions =
+        await this.prisma.companySubscription.findMany({
+          where: {
+            status: SubscriptionStatus.TRIALING,
+            trialEndsAt: {
+              gte: new Date(targetDate.setHours(0, 0, 0, 0)),
+              lte: new Date(targetDate.setHours(23, 59, 59, 999)),
+            },
           },
-        },
-        include: { company: true },
-      });
+          include: { company: true },
+        });
 
       for (const sub of expiringSubscriptions) {
         try {
-          await this.emailService.sendCustomEmail(sub.company.email, {
-            subject: `Your TSNL trial expires in ${days} day${days > 1 ? 's' : ''}`,
-            full_name: sub.company.name,
-            title: `Trial Expiring Soon`,
-            content: `Your free trial expires in ${days} day${days > 1 ? 's' : ''}. Upgrade now to keep access to all features and avoid service interruption.`,
-          }, []);
+          await this.emailService.sendCustomEmail(
+            sub.company.email,
+            {
+              subject: `Your TSNL trial expires in ${days} day${
+                days > 1 ? 's' : ''
+              }`,
+              full_name: sub.company.name,
+              title: `Trial Expiring Soon`,
+              content: `Your free trial expires in ${days} day${
+                days > 1 ? 's' : ''
+              }. Upgrade now to keep access to all features and avoid service interruption.`,
+            },
+            [],
+          );
         } catch (error) {
-          console.error(`Failed to send warning email to ${sub.company.email}:`, error.message);
+          console.error(
+            `Failed to send warning email to ${sub.company.email}:`,
+            error.message,
+          );
         }
       }
     }

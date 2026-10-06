@@ -4,13 +4,24 @@ import {
   Post,
   Body,
   Param,
+  UseInterceptors,
+  UseGuards
 } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiSecurity, ApiOperation, ApiForbiddenResponse } from '@nestjs/swagger';
 import { SubscriptionService } from './subscription.service';
 import { AssignPaidPlanDto } from './dto/assign-trial.dto';
+import { AuthUserInterceptor } from '@api/common/auth/interceptors/authenticated-account.interceptor';
+import { RolesGuard } from '@api/common/auth/guards/role.guard';
+import { Roles } from '@common/decorators/role.decorator';
+import { AccountType } from '@common/enums';
 
 @ApiTags('Platform — Subscriptions')
-@ApiBearerAuth()
+@ApiBearerAuth('bearer')
+@ApiSecurity('api-key')
+@UseInterceptors(AuthUserInterceptor)
+@UseGuards(RolesGuard)
+@Roles(AccountType.PLATFORM_STAFF)
+@ApiForbiddenResponse({ description: 'Not platform staff / not super admin' })
 @Controller('platform/subscriptions')
 export class SubscriptionController {
   constructor(private readonly subscriptionService: SubscriptionService) {}
