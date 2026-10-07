@@ -23,15 +23,10 @@ import { DashboardService } from './dashboard.service';
 @ApiSecurity('api-key')
 @UseInterceptors(AuthUserInterceptor)
 @UseGuards(RolesGuard)
-@Roles(AccountType.COMPANY)
-@ApiForbiddenResponse({ description: 'Not authorized as company' })
+@Roles(AccountType.COMPANY, AccountType.STAFF)
+@ApiForbiddenResponse({ description: 'Not authorized as company or company staff' })
 export class DashboardController {
   constructor(private readonly service: DashboardService) {}
-
-  private getCompanyId(user: AuthenticatedRequestUser): string {
-    return user.companyId ?? user.id;
-  }
-
   @ApiOperation({ summary: 'Company Dashboard KPI Summary Cards' })
   @ApiOkResponse({
     description: 'KPI summary cards (guards, incidents, visitors, cameras, sites, compliance)',
@@ -48,9 +43,8 @@ export class DashboardController {
   })
   @Get('summary')
   async summary(@CurrentUser() user: AuthenticatedRequestUser) {
-    return this.service.summary(this.getCompanyId(user));
+    return this.service.summary(user.companyId!);
   }
-
   @ApiOperation({ summary: 'Recent Incidents and Critical Banner' })
   @ApiOkResponse({
     description: 'Critical alert banner details and recent incidents list',
@@ -87,9 +81,8 @@ export class DashboardController {
   })
   @Get('recent-incidents')
   async recentIncidents(@CurrentUser() user: AuthenticatedRequestUser) {
-    return this.service.recentIncidents(this.getCompanyId(user));
+    return this.service.recentIncidents(user.companyId!);
   }
-
   @ApiOperation({ summary: 'Weekly Performance Metrics Table' })
   @ApiOkResponse({
     description: 'Weekly performance metric comparisons (current, target, status)',
@@ -104,12 +97,11 @@ export class DashboardController {
   })
   @Get('weekly-performance')
   async weeklyPerformance(@CurrentUser() user: AuthenticatedRequestUser) {
-    return this.service.weeklyPerformance(this.getCompanyId(user));
+    return this.service.weeklyPerformance(user.companyId!);
   }
-
   @ApiOperation({ summary: 'Complete Consolidated Company Dashboard' })
   @Get('overview')
   async overview(@CurrentUser() user: AuthenticatedRequestUser) {
-    return this.service.overview(this.getCompanyId(user));
+    return this.service.overview(user.companyId!);
   }
 }

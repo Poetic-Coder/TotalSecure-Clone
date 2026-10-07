@@ -1,5 +1,5 @@
-import { PrismaService } from "@database/prisma.service";
-import { Injectable, Logger } from '@nestjs/common';
+import { PrismaService } from '@database/prisma.service';
+import { Injectable } from '@nestjs/common';
 import {
   CameraStatus,
   GuardStatus,
@@ -9,12 +9,10 @@ import {
   VisitorStatus,
 } from '@prisma/client';
 
-
 @Injectable()
-export class DashboardService{
-    constructor(private readonly prisma: PrismaService) {}
+export class DashboardService {
+  constructor(private readonly prisma: PrismaService) {}
 
-     private readonly logger = new Logger(DashboardService.name);
   /**
    * 1. The 6 Top KPI Metric Cards
    * (Active Guards, Open Incidents, Visitors Today, Cameras Online, Sites Covered, Patrol Compliance)
@@ -148,13 +146,11 @@ export class DashboardService{
       }),
     ]);
     const cameraOnlinePercentage =
-      totalCameras > 0
-        ? Math.round((onlineCameras / totalCameras) * 100)
-        : 100;
+      totalCameras > 0 ? Math.round((onlineCameras / totalCameras) * 100) : 0;
     const patrolCompliancePercentage =
       scheduledPatrols > 0
         ? Math.round((completedPatrols / scheduledPatrols) * 100)
-        : 100;
+        : 0;
     return {
       activeGuards: {
         total: activeGuards,
@@ -362,9 +358,9 @@ export class DashboardService{
     const patrolCompliance =
       scheduledPatrols > 0
         ? Math.round((completedPatrols / scheduledPatrols) * 100)
-        : 96;
+        : null;
     // 2. Incident Response Time
-    let responseTimeHours = 2.4;
+    let responseTimeHours: number | null = null;
     if (resolvedIncidents.length > 0) {
       const totalHours = resolvedIncidents.reduce((acc, inc) => {
         const diffMs = inc.resolvedAt!.getTime() - inc.occurredAt.getTime();
@@ -378,36 +374,56 @@ export class DashboardService{
     const visitorAccuracy =
       totalVisits > 0
         ? Math.round(((totalVisits - rejectedVisits) / totalVisits) * 100)
-        : 99;
+        : null;
     // 4. Camera Availability
     const cameraAvailability =
       totalCameras > 0
         ? Math.round((onlineCameras / totalCameras) * 100)
-        : 98;
+        : null;
     return [
       {
         metric: 'Patrol Compliance',
-        current: `${patrolCompliance}%`,
+        current: patrolCompliance !== null ? `${patrolCompliance}%` : null,
         target: '95%',
-        status: patrolCompliance >= 95 ? 'Exceeding' : 'Lagging',
+        status:
+          patrolCompliance !== null
+            ? patrolCompliance >= 95
+              ? 'Exceeding'
+              : 'Lagging'
+            : null,
       },
       {
         metric: 'Incident Response Time',
-        current: `${responseTimeHours}h`,
+        current: responseTimeHours !== null ? `${responseTimeHours}h` : null,
         target: '2.0h',
-        status: responseTimeHours <= 2.0 ? 'On Target' : 'Lagging',
+        status:
+          responseTimeHours !== null
+            ? responseTimeHours <= 2.0
+              ? 'On Target'
+              : 'Lagging'
+            : null,
       },
       {
         metric: 'Visitor Processing Accuracy',
-        current: `${visitorAccuracy}%`,
+        current: visitorAccuracy !== null ? `${visitorAccuracy}%` : null,
         target: '99%',
-        status: visitorAccuracy >= 99 ? 'On Target' : 'Lagging',
+        status:
+          visitorAccuracy !== null
+            ? visitorAccuracy >= 99
+              ? 'On Target'
+              : 'Lagging'
+            : null,
       },
       {
         metric: 'Camera Availability',
-        current: `${cameraAvailability}%`,
+        current: cameraAvailability !== null ? `${cameraAvailability}%` : null,
         target: '99%',
-        status: cameraAvailability >= 99 ? 'On Target' : 'Lagging',
+        status:
+          cameraAvailability !== null
+            ? cameraAvailability >= 99
+              ? 'On Target'
+              : 'Lagging'
+            : null,
       },
     ];
   }

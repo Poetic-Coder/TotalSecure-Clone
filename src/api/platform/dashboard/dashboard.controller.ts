@@ -6,7 +6,6 @@ import { AccountType } from '@common/enums';
 import {
   Controller,
   Get,
-  Post,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';

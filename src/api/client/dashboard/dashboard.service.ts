@@ -1,5 +1,5 @@
 import { PrismaService } from '@database/prisma.service';
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import {
   CameraStatus,
   DeploymentStatus,
@@ -14,7 +14,6 @@ import {
 @Injectable()
 export class DashboardService {
   constructor(private readonly prisma: PrismaService) {}
-  private readonly logger = new Logger(DashboardService.name);
 
   /**
    * 1. The 6 Core KPI Metric Cards for Client Premises
@@ -366,77 +365,91 @@ export class DashboardService {
   /**
    * 4. Site-by-Site Operational Overview
    */
+    /**
+   * 4. Site-by-Site Operational Overview
+   */
   public async sites(clientId: string) {
-    const sites = await this.prisma.site.findMany({
-      where: { clientId },
-      select: {
-        id: true,
-        name: true,
-        code: true,
-        classification: true,
-        address: true,
-        active: true,
-        _count: {
-          select: {
-            deployments: { where: { status: DeploymentStatus.ACTIVE } },
-            cameras: true,
-            incidents: {
-              where: {
-                status: {
-                  in: [
-                    IncidentStatus.REPORTED,
-                    IncidentStatus.UNDER_REVIEW,
-                    IncidentStatus.ESCALATED,
-                    IncidentStatus.INVESTIGATING,
-                  ],
-                },
-              },
-            },
-          },
-        },
-      },
-    });
-
-    const siteCards = await Promise.all(
-      sites.map(async (s) => {
-        const [onlineCameras, lastPatrol] = await Promise.all([
-          this.prisma.camera.count({
-            where: { siteId: s.id, status: CameraStatus.ONLINE },
-          }),
-          this.prisma.patrol.findFirst({
-            where: { siteId: s.id },
+    const [sites, onlineCameraGroups] = await Promise.all([
+      this.prisma.site.findMany({
+        where: { clientId },
+        select: {
+          id: true,
+          name: true,
+          code: true,
+          classification: true,
+          address: true,
+          active: true,
+          patrols: {
+            take: 1,
             orderBy: { scheduledStart: 'desc' },
             select: {
               status: true,
               completionRate: true,
               actualEnd: true,
             },
-          }),
-        ]);
-
-        return {
-          id: s.id,
-          name: s.name,
-          code: s.code,
-          classification: s.classification,
-          address: s.address,
-          active: s.active,
-          guardsAssigned: s._count.deployments,
-          cameras: {
-            total: s._count.cameras,
-            online: onlineCameras,
           },
-          openIncidents: s._count.incidents,
-          lastPatrolStatus: lastPatrol?.status ?? 'NO_PATROLS',
-          lastPatrolCompletionRate: lastPatrol?.completionRate ?? 0,
-        };
+          _count: {
+            select: {
+              deployments: { where: { status: DeploymentStatus.ACTIVE } },
+              cameras: true,
+              incidents: {
+                where: {
+                  status: {
+                    in: [
+                      IncidentStatus.REPORTED,
+                      IncidentStatus.UNDER_REVIEW,
+                      IncidentStatus.ESCALATED,
+                      IncidentStatus.INVESTIGATING,
+                    ],
+                  },
+                },
+              },
+            },
+          },
+        },
       }),
+      this.prisma.camera.groupBy({
+        by: ['siteId'],
+        where: {
+          site: { clientId },
+          status: CameraStatus.ONLINE,
+        },
+        _count: {
+          id: true,
+        },
+      }),
+    ]);
+
+    const onlineCameraMap = new Map<string, number>(
+      onlineCameraGroups
+        .filter((g) => g.siteId !== null)
+        .map((g) => [g.siteId!, g._count.id]),
     );
 
-    return siteCards;
+    return sites.map((s) => {
+      const lastPatrol = s.patrols[0] ?? null;
+      const onlineCameras = onlineCameraMap.get(s.id) ?? 0;
+
+      return {
+        id: s.id,
+        name: s.name,
+        code: s.code,
+        classification: s.classification,
+        address: s.address,
+        active: s.active,
+        guardsAssigned: s._count.deployments,
+        cameras: {
+          total: s._count.cameras,
+          online: onlineCameras,
+        },
+        openIncidents: s._count.incidents,
+        lastPatrolStatus: lastPatrol?.status ?? 'NO_PATROLS',
+        lastPatrolCompletionRate: lastPatrol?.completionRate ?? 0,
+      };
+    });
   }
 
-    /**
+  /**
    * 5. Invoicing & Account Manager Summary
    */
   public async billingSummary(clientId: string) {
@@ -547,6 +560,42 @@ export class DashboardService {
       recentIncidents: incidentsData.incidents,
       gateActivity,
       billing,
+    };
+  }
+
+  /**
+   * 7. Site only Incidents Overview (For Site Managers)
+   */
+  public async siteIncidentsOverview(clientId: string, siteId: string) {
+    const [openCount, criticalAlert, incidents] = await Promise.all([
+      this.prisma.incident.count({
+        where: {
+          OR: [{ clientId }, { site: { clientId } }],
+          siteId,
+          status: IncidentStatus.REPORTED,
+        },
+      }),
+      this.prisma.incident.count({
+        where: {
+          OR: [{ clientId }, { site: { clientId } }],
+          siteId,
+          severity: IncidentSeverity.CRITICAL,
+        },
+      }),
+      this.prisma.incident.findMany({
+        where: {
+          OR: [{ clientId }, { site: { clientId } }],
+          siteId,
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 5,
+      }),
+    ]);
+
+    return {
+      openCount,
+      criticalAlert,
+      incidents,
     };
   }
 }

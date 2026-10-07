@@ -5,12 +5,19 @@ import { ApiHeaders } from '@common/decorators/defaultHeaders';
 import { Roles } from '@common/decorators/role.decorator';
 import { AccountType } from '@common/enums';
 import { AuthenticatedRequestUser } from '@common/interfaces';
-import { Controller, Get, UseGuards, UseInterceptors } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  UseGuards,
+  UseInterceptors,
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiForbiddenResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiParam,
   ApiSecurity,
   ApiTags,
 } from '@nestjs/swagger';
@@ -36,15 +43,29 @@ export class DashboardController {
 
   @ApiOperation({ summary: 'Client Dashboard KPI Summary Cards' })
   @ApiOkResponse({
-    description: 'Summary cards for client premises (guards, incidents, visitors, vehicles, sites, compliance)',
+    description:
+      'Summary cards for client premises (guards, incidents, visitors, vehicles, sites, compliance)',
     schema: {
       example: {
-        guardsOnDuty: { deployed: 18, onPatrolNow: 4, subtitle: '18 guards assigned' },
-        openIncidents: { total: 1, critical: 0, status: '1 Under Investigation' },
+        guardsOnDuty: {
+          deployed: 18,
+          onPatrolNow: 4,
+          subtitle: '18 guards assigned',
+        },
+        openIncidents: {
+          total: 1,
+          critical: 0,
+          status: '1 Under Investigation',
+        },
         visitorsToday: { total: 42, currentlyInside: 14, pendingApproval: 3 },
         vehiclesOnSite: { currentlyInside: 28, totalEntriesToday: 65 },
         sitesCovered: { total: 3, active: 3, subtitle: 'All monitored' },
-        patrolCompliance: { percentage: 98, completedRounds: 34, scheduledRounds: 35, subtitle: 'This week' },
+        patrolCompliance: {
+          percentage: 98,
+          completedRounds: 34,
+          scheduledRounds: 35,
+          subtitle: 'This week',
+        },
       },
     },
   })
@@ -147,7 +168,8 @@ export class DashboardController {
 
   @ApiOperation({ summary: 'Billing & Account Manager Summary' })
   @ApiOkResponse({
-    description: 'Outstanding invoices balance, subscription status, and account manager details',
+    description:
+      'Outstanding invoices balance, subscription status, and account manager details',
     schema: {
       example: {
         outstandingBalance: 350000,
@@ -186,5 +208,40 @@ export class DashboardController {
   @Get('overview')
   async overview(@CurrentUser() user: AuthenticatedRequestUser) {
     return this.service.overview(this.getClientId(user));
+  }
+
+  @ApiOperation({ summary: 'Site Incident Overview (For Site Managers)' })
+  @ApiParam({
+    name: 'siteId',
+    description: 'Unique UUID of the site',
+    type: String,
+    example: 'b4a8e23f-5d1c-4b92-91e8-782a945112fa',
+  })
+  @ApiOkResponse({
+    description:
+      'Incident counts and recent incidents list scoped to a specific site',
+    schema: {
+      example: {
+        openCount: 2,
+        criticalAlert: 1,
+        incidents: [
+          {
+            id: 'incident-uuid-1',
+            referenceNumber: '#1052',
+            title: 'Unauthorized perimeter breach',
+            severity: 'CRITICAL',
+            status: 'REPORTED',
+            createdAt: '2026-10-07T08:30:00.000Z',
+          },
+        ],
+      },
+    },
+  })
+  @Get('sites/:siteId/incidents')
+  async siteIncidentsOverview(
+    @CurrentUser() user: AuthenticatedRequestUser,
+    @Param('siteId') siteId: string,
+  ) {
+    return this.service.siteIncidentsOverview(this.getClientId(user), siteId);
   }
 }

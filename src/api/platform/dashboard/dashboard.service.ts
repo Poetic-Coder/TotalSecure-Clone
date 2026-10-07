@@ -1,11 +1,10 @@
 import { PrismaService } from '@database/prisma.service';
-import { Injectable, Logger } from '@nestjs/common';
-import { CompanyStatus, PlanTier } from '@prisma/client';
+import { Injectable } from '@nestjs/common';
+import { CompanyStatus } from '@prisma/client';
 
 @Injectable()
 export class DashboardService {
   constructor(private readonly prisma: PrismaService) {}
-  private readonly logger = new Logger(DashboardService.name);
 
   public async companySummary() {
     const companiesCount = await this.prisma.company.count({});
@@ -14,27 +13,27 @@ export class DashboardService {
         status: 'PENDING_APPROVAL' as CompanyStatus,
       },
     });
-    const activeComapaniesCount = await this.prisma.company.count({
+    const activeCompaniesCount = await this.prisma.company.count({
       where: {
         status: 'ACTIVE' as CompanyStatus,
       },
     });
-    const rejectedComapaniesCount = await this.prisma.company.count({
+    const rejectedCompaniesCount = await this.prisma.company.count({
       where: {
         status: 'REJECTED' as CompanyStatus,
       },
     });
-    const inactiveComapaniesCount = await this.prisma.company.count({
+    const inactiveCompaniesCount = await this.prisma.company.count({
       where: {
         status: 'INACTIVE' as CompanyStatus,
       },
     });
-    const suspendedComapaniesCount = await this.prisma.company.count({
+    const suspendedCompaniesCount = await this.prisma.company.count({
       where: {
         status: 'SUSPENDED' as CompanyStatus,
       },
     });
-    const churnedComapaniesCount = await this.prisma.company.count({
+    const churnedCompaniesCount = await this.prisma.company.count({
       where: {
         status: 'CHURNED' as CompanyStatus,
       },
@@ -44,11 +43,11 @@ export class DashboardService {
       companies: {
         total: companiesCount,
         pending: pendingCompaniesCount,
-        active: activeComapaniesCount,
-        rejected: rejectedComapaniesCount,
-        inactive: inactiveComapaniesCount,
-        suspended: suspendedComapaniesCount,
-        churned: churnedComapaniesCount,
+        active: activeCompaniesCount,
+        rejected: rejectedCompaniesCount,
+        inactive: inactiveCompaniesCount,
+        suspended: suspendedCompaniesCount,
+        churned: churnedCompaniesCount,
       },
     };
     return summary;
@@ -71,110 +70,141 @@ export class DashboardService {
   public async sites() {
     const sites = await this.prisma.site.count({});
     const returnedData = {
-      totalSites: sites
+      totalSites: sites,
     };
-    return returnedData
+    return returnedData;
   }
 
-    public async company() {
-    const companies = await this.prisma.company.findMany({
-      select: {
-        id: true,
-        name: true,
-        status: true,
-        subscription: {
-          select: {
-            plan: {
-              select: {
-                tier: true,
-                name: true,
+  public async company() {
+    const [companies, clients] = await Promise.all([
+      this.prisma.company.findMany({
+        select: {
+          id: true,
+          name: true,
+          status: true,
+          subscription: {
+            select: {
+              plan: {
+                select: {
+                  tier: true,
+                  name: true,
+                },
               },
             },
           },
-        },
-        _count: {
-          select: {
-            guards: true,
-            staff: true,
+          _count: {
+            select: {
+              guards: true,
+              staff: true,
+            },
           },
         },
-      },
-    });
-
-    const companyDetails = await Promise.all(
-      companies.map(async (c) => {
-        const [clientStaffCount, siteCount] = await Promise.all([
-          this.prisma.clientStaff.count({
-            where: { client: { companyId: c.id } },
-          }),
-          this.prisma.site.count({
-            where: { client: { companyId: c.id } },
-          }),
-        ]);
-
-        const totalUsers = c._count.guards + c._count.staff + clientStaffCount;
-
-        return {
-          id: c.id,
-          name: c.name,
-          status: c.status,
-          plan: c.subscription?.plan?.tier ?? 'NONE',
-          planName: c.subscription?.plan?.name ?? 'No Plan',
-          users: totalUsers,
-          guard: c._count.guards,
-          site: siteCount,
-        };
       }),
-    );
+      this.prisma.client.findMany({
+        select: {
+          companyId: true,
+          _count: {
+            select: {
+              clientStaff: true,
+              sites: true,
+            },
+          },
+        },
+      }),
+    ]);
 
-    return companyDetails;
+    // Aggregate clientStaff and sites by companyId in memory
+    const clientAggregates = new Map<
+      string,
+      { clientStaffCount: number; siteCount: number }
+    >();
+    for (const client of clients) {
+      const stats = clientAggregates.get(client.companyId) ?? {
+        clientStaffCount: 0,
+        siteCount: 0,
+      };
+      stats.clientStaffCount += client._count.clientStaff;
+      stats.siteCount += client._count.sites;
+      clientAggregates.set(client.companyId, stats);
+    }
+
+    return companies.map((c) => {
+      const stats = clientAggregates.get(c.id) ?? {
+        clientStaffCount: 0,
+        siteCount: 0,
+      };
+      const totalUsers =
+        c._count.guards + c._count.staff + stats.clientStaffCount;
+
+      return {
+        id: c.id,
+        name: c.name,
+        status: c.status,
+        plan: c.subscription?.plan?.tier ?? 'NONE',
+        planName: c.subscription?.plan?.name ?? 'No Plan',
+        users: totalUsers,
+        guard: c._count.guards,
+        site: stats.siteCount,
+      };
+    });
   }
 
   public async planExpiry() {
-    const companySubscriptions = await this.prisma.companySubscription.findMany({
-      include: {
-        company: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            phone: true,
-            logo: true,
-            status: true,
-          },
-        },
-        plan: {
-          select: {
-            name: true,
-            tier: true,
-          },
-        },
-      },
-    });
-
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const upcomingExpiration = companySubscriptions.reduce((acc, one) => {
-      const targetDate = new Date(one.currentPeriodEnd);
+    const in30Days = new Date(today);
+    in30Days.setDate(in30Days.getDate() + 30);
+    in30Days.setHours(23, 59, 59, 999);
+
+    const companySubscriptions = await this.prisma.companySubscription.findMany(
+      {
+        where: {
+          currentPeriodEnd: {
+            gte: today,
+            lte: in30Days,
+          },
+        },
+        orderBy: {
+          currentPeriodEnd: 'asc',
+        },
+        include: {
+          company: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              phone: true,
+              logo: true,
+              status: true,
+            },
+          },
+          plan: {
+            select: {
+              name: true,
+              tier: true,
+            },
+          },
+        },
+      },
+    );
+
+    return companySubscriptions.map((sub) => {
+      const targetDate = new Date(sub.currentPeriodEnd);
       targetDate.setHours(0, 0, 0, 0);
-
       const diffTime = targetDate.getTime() - today.getTime();
-      const expiryDay = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      const expirationDay = Math.max(
+        0,
+        Math.ceil(diffTime / (1000 * 60 * 60 * 24)),
+      );
 
-      if (expiryDay >= 0 && expiryDay <= 30) {
-        acc.push({
-          company: one.company,
-          plan: one.plan,
-          expirationDate: one.currentPeriodEnd,
-          expirationDay: expiryDay,
-        });
-      }
-
-      return acc;
-    }, [] as { company: any; plan: any; expirationDate: Date; expirationDay: number }[]);
-
-    return upcomingExpiration;
+      return {
+        company: sub.company,
+        plan: sub.plan,
+        expirationDate: sub.currentPeriodEnd,
+        expirationDay,
+      };
+    });
   }
 
   //   public async billingAndSubsciptionSummary() {
