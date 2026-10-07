@@ -4,10 +4,15 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '@database/prisma.service';
+import { AuditAction, Prisma } from '@prisma/client';
 import { ConfigService } from '@nestjs/config';
+import { AuditLogService } from '@api/company/rbac/services/audit-log.service';
+import { AuthenticatedRequestUser } from '@common/interfaces';
 import { addDays, differenceInDays, isAfter } from 'date-fns';
 import { CompanyStatus, SubscriptionStatus } from '@prisma/client';
 import { EmailService } from '@modules/network/services/email/email.service';
+import { AuthAccountService } from '@api/common/auth/services/auth-account.service';
+import { AuthSessionService } from '@api/common/auth/services/auth-session.service';
 
 @Injectable()
 export class SubscriptionService {
@@ -15,6 +20,9 @@ export class SubscriptionService {
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
     private readonly emailService: EmailService,
+    private readonly auditLog: AuditLogService,
+    private readonly authAccountService: AuthAccountService,
+    private readonly session: AuthSessionService,
   ) {}
 
   // ─── PRIVATE HELPERS ───────────────────────────────────────
@@ -32,16 +40,22 @@ export class SubscriptionService {
   // ─── AUTO-ASSIGN TRIAL ON COMPANY REGISTRATION ─────────────
   // Called internally when a Company registers — not a public endpoint
 
-  async assignTrialOnRegister(companyPk: number, companyId: string) {
+  async assignTrialOnRegister(
+    companyPk: number,
+    companyId: string,
+    prismaTx?: Prisma.TransactionClient,
+  ) {
+    const prisma = prismaTx ?? this.prisma;
+
     // Check if subscription already exists
-    const existing = await this.prisma.companySubscription.findUnique({
+    const existing = await prisma.companySubscription.findUnique({
       where: { companyId },
     });
 
     if (existing) return existing;
 
     // Find the FREE tier plan to assign as trial base
-    const freePlan = await this.prisma.platformPlan.findFirst({
+    const freePlan = await prisma.platformPlan.findFirst({
       where: { tier: 'FREE', active: true },
     });
 
@@ -53,7 +67,7 @@ export class SubscriptionService {
     const now = new Date();
     const trialEndsAt = addDays(now, trialDays);
 
-    const subscription = await this.prisma.companySubscription.create({
+    const subscription = await prisma.companySubscription.create({
       data: {
         status: SubscriptionStatus.TRIALING,
         billingCycle: 'MONTHLY',
@@ -219,66 +233,92 @@ export class SubscriptionService {
   // PlatformStaff upgrades a company to a paid plan
 
   async assignPaidPlan(
+    actor: AuthenticatedRequestUser,
     companyId: string,
     planId: string,
     billingCycle: 'MONTHLY' | 'QUARTERLY' | 'ANNUALLY',
   ) {
+    this.authAccountService.assertPlatformSuperAdmin(actor);
+
     const company = await this.prisma.company.findUnique({
       where: { id: companyId },
     });
-
-    if (!company) {
-      throw new NotFoundException(['Company not found']);
-    }
+    if (!company) throw new NotFoundException(['Company not found']);
 
     const plan = await this.prisma.platformPlan.findUnique({
       where: { id: planId },
     });
-
-    if (!plan || !plan.active) {
+    if (!plan || !plan.active)
       throw new NotFoundException(['Plan not found or inactive']);
-    }
 
     const now = new Date();
-    let periodEnd: Date;
+    const periodEnd =
+      billingCycle === 'MONTHLY'
+        ? addDays(now, 30)
+        : billingCycle === 'QUARTERLY'
+        ? addDays(now, 90)
+        : addDays(now, 365);
 
-    if (billingCycle === 'MONTHLY') periodEnd = addDays(now, 30);
-    else if (billingCycle === 'QUARTERLY') periodEnd = addDays(now, 90);
-    else periodEnd = addDays(now, 365);
+    const result = await this.prisma.$transaction(async (tx) => {
+      // Upsert subscription
+      const subscription = await tx.companySubscription.upsert({
+        where: { companyId },
+        create: {
+          status: SubscriptionStatus.ACTIVE,
+          billingCycle,
+          currentPeriodStart: now,
+          currentPeriodEnd: periodEnd,
+          companyPk: company.pk,
+          companyId: company.id,
+          planPk: plan.pk,
+          planId: plan.id,
+        },
+        update: {
+          status: SubscriptionStatus.ACTIVE,
+          billingCycle,
+          currentPeriodStart: now,
+          currentPeriodEnd: periodEnd,
+          planPk: plan.pk,
+          planId: plan.id,
+          trialEndsAt: null, // clear trial end date on upgrade
+        },
+        include: { plan: true },
+      });
 
-    // Upsert — create if not exists, update if exists
-    const subscription = await this.prisma.companySubscription.upsert({
-      where: { companyId },
-      create: {
-        status: SubscriptionStatus.ACTIVE,
-        billingCycle,
-        currentPeriodStart: now,
-        currentPeriodEnd: periodEnd,
-        companyPk: company.pk,
-        companyId: company.id,
-        planPk: plan.pk,
-        planId: plan.id,
-      },
-      update: {
-        status: SubscriptionStatus.ACTIVE,
-        billingCycle,
-        currentPeriodStart: now,
-        currentPeriodEnd: periodEnd,
-        planPk: plan.pk,
-        planId: plan.id,
-        trialEndsAt: null, // clear trial end date on upgrade
-      },
-      include: { plan: true },
+      // Check if company was suspended due to expired trial
+      const currentSub = await tx.companySubscription.findUnique({
+        where: { companyId },
+      });
+
+      let updatedCompany = company;
+      if (
+        company.status === CompanyStatus.SUSPENDED &&
+        currentSub?.trialEndsAt &&
+        currentSub.trialEndsAt < new Date()
+      ) {
+        updatedCompany = await tx.company.update({
+          where: { id: companyId },
+          data: { status: CompanyStatus.ACTIVE },
+        });
+      }
+
+      return { subscription, updatedCompany };
     });
 
-    await this.prisma.company.update({
-      where: { id: companyId },
-      data: { status: CompanyStatus.ACTIVE },
+    await this.auditLog.logForActor(actor, {
+      action: AuditAction.UPDATE,
+      module: 'SUBSCRIPTION',
+      targetId: companyId,
+      targetType: 'Company',
+      description: `Platform assigned paid plan ${planId}`,
+      companyPk: result.updatedCompany.pk,
+      companyId: result.updatedCompany.id,
     });
 
     return {
       message: `Company successfully upgraded to ${plan.name}`,
-      subscription,
+      company: result.updatedCompany,
+      subscription: result.subscription,
     };
   }
 

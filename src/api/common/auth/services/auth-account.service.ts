@@ -22,6 +22,7 @@ import { PrismaService } from '@database/prisma.service';
 import { HashingService } from '@modules/hashing/hashing.service';
 import { EmailService } from '@modules/network/services/email/email.service';
 import { AuditLogService } from '@api/company/rbac/services/audit-log.service';
+import { SubscriptionService } from '@api/platform/subscription/subscription.service';
 import { AccountType } from '@common/enums';
 import { AuthenticatedRequestUser, TokenAccount } from '@common/interfaces';
 import { OTP_EXPIRY } from '@common/constants';
@@ -49,6 +50,7 @@ export class AuthAccountService {
     private readonly session: AuthSessionService,
     private readonly emailService: EmailService,
     private readonly auditLog: AuditLogService,
+    private readonly subscription: SubscriptionService,
     @Inject(CACHE_MANAGER) private readonly cache: Cache,
   ) {}
 
@@ -275,16 +277,25 @@ export class AuthAccountService {
     if (company.status !== CompanyStatus.PENDING_APPROVAL) {
       throw new BadRequestException(['Company is not pending approval']);
     }
-    const updated = await this.prisma.company.update({
-      where: { id: companyId },
-      data: {
-        status: CompanyStatus.ACTIVE,
-        rejectedAt: null,
-        rejectReason: null,
-      },
-    });
 
-    await this.assignTrialOnRegister(updated.pk, updated.id);
+    const result = await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.company.update({
+        where: { id: companyId },
+        data: {
+          status: CompanyStatus.ACTIVE,
+          rejectedAt: null,
+          rejectReason: null,
+        },
+      });
+
+      const subscription = await this.subscription.assignTrialOnRegister(
+        updated.pk,
+        updated.id,
+        tx,
+      );
+
+      return { updated, subscription };
+    });
 
     await this.auditLog.logForActor(actor, {
       action: AuditAction.APPROVE,
@@ -292,10 +303,15 @@ export class AuthAccountService {
       targetId: companyId,
       targetType: 'Company',
       description: 'Platform approved company registration',
-      companyPk: updated.pk,
-      companyId: updated.id,
+      companyPk: result.updated.pk,
+      companyId: result.updated.id,
     });
-    return this.session.stripSecret(updated);
+
+    return {
+      message: 'Company approved and trial started',
+      company: this.session.stripSecret(result.updated),
+      subscription: result.subscription,
+    };
   }
 
   async rejectCompany(
@@ -1012,7 +1028,7 @@ export class AuthAccountService {
     }
   }
 
-  private assertPlatformSuperAdmin(user: AuthenticatedRequestUser) {
+  public assertPlatformSuperAdmin(user: AuthenticatedRequestUser) {
     this.assertPlatform(user);
     const role = (user as PlatformStaff).role;
     if (role !== PlatformStaffRole.PLATFORM_SUPER_ADMIN) {

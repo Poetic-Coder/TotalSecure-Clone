@@ -6,14 +6,20 @@ import {
 import { PrismaService } from '@database/prisma.service';
 import { CreatePlatformPlanDto } from './dto/create-plan.dto';
 import { UpdatePlatformPlanDto } from './dto/update-plan.dto';
+import { AuthAccountService } from '@api/common/auth/services/auth-account.service';
+import { AuthenticatedRequestUser } from '@common/interfaces';
 
 @Injectable()
 export class PlansService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly authAccountService: AuthAccountService,
+  ) {}
 
   // ─── CREATE ────────────────────────────────────────────────
 
-  async create(dto: CreatePlatformPlanDto) {
+  async create(actor: AuthenticatedRequestUser, dto: CreatePlatformPlanDto) {
+    this.authAccountService.assertPlatformSuperAdmin(actor);
     const existing = await this.prisma.platformPlan.findUnique({
       where: { name: dto.name },
     });
@@ -91,13 +97,18 @@ export class PlansService {
 
   // ─── UPDATE ────────────────────────────────────────────────
 
-  async update(id: string, dto: UpdatePlatformPlanDto) {
-  const existing = await this.findOne(id);
+  async update(
+    actor: AuthenticatedRequestUser,
+    id: string,
+    dto: UpdatePlatformPlanDto,
+  ) {
+    this.authAccountService.assertPlatformSuperAdmin(actor);
+    const existing = await this.findOne(id);
 
     if (dto.name && dto.name !== existing.name) {
       const duplicate = await this.prisma.platformPlan.findUnique({
-      where: { name: dto.name },
-        });
+        where: { name: dto.name },
+      });
       if (duplicate) {
         throw new ConflictException([
           `A plan named "${dto.name}" already exists`,
@@ -105,18 +116,29 @@ export class PlansService {
       }
     }
 
-    if (dto.monthlyPrice === undefined && dto.quarterlyPrice === undefined && dto.annualPrice === undefined) {
-      throw new ConflictException([
-        'At least one billing cycle price must be provided',
-      ]);
-   }
+    // ✅ Only enforce price if user is trying to change pricing
+    const isUpdatingPrice =
+      dto.monthlyPrice !== undefined ||
+      dto.quarterlyPrice !== undefined ||
+      dto.annualPrice !== undefined;
+
+    if (isUpdatingPrice) {
+      if (
+        dto.monthlyPrice === undefined &&
+        dto.quarterlyPrice === undefined &&
+        dto.annualPrice === undefined
+      ) {
+        throw new ConflictException([
+          'At least one billing cycle price must be provided',
+        ]);
+      }
+    }
 
     return this.prisma.platformPlan.update({
       where: { id },
       data: { ...dto },
     });
   }
-
 
   // ─── SOFT DELETE ───────────────────────────────────────────
 
