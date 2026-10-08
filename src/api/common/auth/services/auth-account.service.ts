@@ -22,7 +22,6 @@ import { PrismaService } from '@database/prisma.service';
 import { HashingService } from '@modules/hashing/hashing.service';
 import { EmailService } from '@modules/network/services/email/email.service';
 import { AuditLogService } from '@api/company/rbac/services/audit-log.service';
-import { SubscriptionService } from '@api/platform/subscription/subscription.service';
 import { AccountType } from '@common/enums';
 import { AuthenticatedRequestUser, TokenAccount } from '@common/interfaces';
 import { OTP_EXPIRY } from '@common/constants';
@@ -50,7 +49,6 @@ export class AuthAccountService {
     private readonly session: AuthSessionService,
     private readonly emailService: EmailService,
     private readonly auditLog: AuditLogService,
-    private readonly subscription: SubscriptionService,
     @Inject(CACHE_MANAGER) private readonly cache: Cache,
   ) {}
 
@@ -125,9 +123,7 @@ export class AuthAccountService {
     this.assertNotImpersonating(user, 'MFA');
     await this.assertCurrentPassword(user, password);
     await this.setMfa(user.accountType, user.id, true);
-    return {
-      message: 'MFA enabled. The next login will require an email code.',
-    };
+    return { message: 'MFA enabled. The next login will require an email code.' };
   }
 
   async disableMfa(user: AuthenticatedRequestUser, password: string) {
@@ -172,9 +168,7 @@ export class AuthAccountService {
     const domain = this.normalizeDomain(dto.domain);
     const company = await this.prisma.company.findUnique({ where: { domain } });
     if (!company || company.status !== CompanyStatus.ACTIVE) {
-      throw new BadRequestException([
-        'Company is not available for registration',
-      ]);
+      throw new BadRequestException(['Company is not available for registration']);
     }
 
     const phone = cleanPhone(dto.phone);
@@ -228,8 +222,7 @@ export class AuthAccountService {
 
   async forgotPassword(email: string, accountType: AccountType) {
     const generic = {
-      message:
-        'If this account is registered, you will receive a reset code shortly.',
+      message: 'If this account is registered, you will receive a reset code shortly.',
     };
     const record = await this.findLoginRecord(accountType, email);
     if (!record) return generic;
@@ -277,41 +270,20 @@ export class AuthAccountService {
     if (company.status !== CompanyStatus.PENDING_APPROVAL) {
       throw new BadRequestException(['Company is not pending approval']);
     }
-
-    const result = await this.prisma.$transaction(async (tx) => {
-      const updated = await tx.company.update({
-        where: { id: companyId },
-        data: {
-          status: CompanyStatus.ACTIVE,
-          rejectedAt: null,
-          rejectReason: null,
-        },
-      });
-
-      const subscription = await this.subscription.assignTrialOnRegister(
-        updated.pk,
-        updated.id,
-        tx,
-      );
-
-      return { updated, subscription };
+    const updated = await this.prisma.company.update({
+      where: { id: companyId },
+      data: { status: CompanyStatus.ACTIVE, rejectedAt: null, rejectReason: null },
     });
-
     await this.auditLog.logForActor(actor, {
       action: AuditAction.APPROVE,
       module: 'COMPANY',
       targetId: companyId,
       targetType: 'Company',
       description: 'Platform approved company registration',
-      companyPk: result.updated.pk,
-      companyId: result.updated.id,
+      companyPk: updated.pk,
+      companyId: updated.id,
     });
-
-    return {
-      message: 'Company approved and trial started',
-      company: this.session.stripSecret(result.updated),
-      subscription: result.subscription,
-    };
+    return this.session.stripSecret(updated);
   }
 
   async rejectCompany(
@@ -353,11 +325,7 @@ export class AuthAccountService {
     }
     const updated = await this.prisma.client.update({
       where: { id: clientId },
-      data: {
-        status: ClientStatus.ACTIVE,
-        rejectedAt: null,
-        rejectReason: null,
-      },
+      data: { status: ClientStatus.ACTIVE, rejectedAt: null, rejectReason: null },
     });
     await this.auditLog.logForActor(actor, {
       action: AuditAction.APPROVE,
@@ -402,10 +370,7 @@ export class AuthAccountService {
     return this.session.stripSecret(updated);
   }
 
-  async createPlatformStaff(
-    actor: AuthenticatedRequestUser,
-    dto: CreatePlatformStaffDto,
-  ) {
+  async createPlatformStaff(actor: AuthenticatedRequestUser, dto: CreatePlatformStaffDto) {
     this.assertPlatformSuperAdmin(actor);
     this.assertPassword(dto.password);
     await this.assertEmailAvailable(dto.email);
@@ -478,9 +443,7 @@ export class AuthAccountService {
       where: { id: assignmentId },
     });
     if (!assignment) throw new NotFoundException('Assignment not found');
-    await this.prisma.platformStaffAssignment.delete({
-      where: { id: assignmentId },
-    });
+    await this.prisma.platformStaffAssignment.delete({ where: { id: assignmentId } });
     return { message: 'Assignment removed' };
   }
 
@@ -488,9 +451,7 @@ export class AuthAccountService {
     this.assertPlatform(actor);
     const company = await this.requireCompany(companyId);
     if (company.status !== CompanyStatus.ACTIVE) {
-      throw new BadRequestException([
-        'Only an active company can be impersonated',
-      ]);
+      throw new BadRequestException(['Only an active company can be impersonated']);
     }
 
     const assignment = await this.prisma.platformStaffAssignment.findFirst({
@@ -522,20 +483,13 @@ export class AuthAccountService {
     });
   }
 
-  async createCompanyStaff(
-    actor: AuthenticatedRequestUser,
-    dto: CreateCompanyStaffDto,
-  ) {
+  async createCompanyStaff(actor: AuthenticatedRequestUser, dto: CreateCompanyStaffDto) {
     this.assertNotImpersonating(actor, 'create staff');
     const company = this.requireCompanyActor(actor);
     this.assertPassword(dto.password);
     await this.assertEmailAvailable(dto.email);
 
-    if (
-      await this.prisma.staff.findUnique({
-        where: { email: dto.email.toLowerCase() },
-      })
-    ) {
+    if (await this.prisma.staff.findUnique({ where: { email: dto.email.toLowerCase() } })) {
       throw new BadRequestException(['Email already exists']);
     }
     if (await this.prisma.staff.findUnique({ where: { phone: dto.phone } })) {
@@ -590,10 +544,7 @@ export class AuthAccountService {
     return this.setStaffActive(actor, staffId, ActiveStatus.ACTIVE);
   }
 
-  async createCompanyClient(
-    actor: AuthenticatedRequestUser,
-    dto: CreateCompanyClientDto,
-  ) {
+  async createCompanyClient(actor: AuthenticatedRequestUser, dto: CreateCompanyClientDto) {
     this.assertNotImpersonating(actor, 'create clients');
     const company = this.requireCompanyActor(actor);
     this.assertPassword(dto.password);
@@ -629,20 +580,13 @@ export class AuthAccountService {
     return this.session.stripSecret(client);
   }
 
-  private async loginByType(
-    accountType: AccountType,
-    email: string,
-    password: string,
-  ) {
+  private async loginByType(accountType: AccountType, email: string, password: string) {
     const attemptsKey = `login_attempts_${accountType}_${email}`;
     const blockedKey = `login_blocked_${accountType}_${email}`;
     await this.checkLoginBlock(blockedKey);
 
     const record = await this.findLoginRecord(accountType, email);
-    if (
-      !record ||
-      !(await this.hashingService.compare(password, record.password))
-    ) {
+    if (!record || !(await this.hashingService.compare(password, record.password))) {
       await this.recordFailedAttempt(attemptsKey, blockedKey);
       throw new BadRequestException(['Invalid email or password']);
     }
@@ -650,16 +594,9 @@ export class AuthAccountService {
     await this.clearLoginBlock(attemptsKey, blockedKey);
 
     if (record.mfaEnabled) {
-      const hydrated = await this.session.hydrateAccount(
-        accountType,
-        record.id,
-      );
+      const hydrated = await this.session.hydrateAccount(accountType, record.id);
       const otp = generateOtp();
-      await this.cache.set(
-        this.mfaKey(accountType, record.id),
-        otp,
-        OTP_EXPIRY,
-      );
+      await this.cache.set(this.mfaKey(accountType, record.id), otp, OTP_EXPIRY);
       try {
         await this.emailService.sendOtp(record.email, {
           name: record.name,
@@ -689,9 +626,7 @@ export class AuthAccountService {
               email: row.email,
               password: row.password,
               mfaEnabled: row.mfaEnabled,
-              name:
-                `${row.firstName ?? ''} ${row.lastName ?? ''}`.trim() ||
-                row.email,
+              name: `${row.firstName ?? ''} ${row.lastName ?? ''}`.trim() || row.email,
             }
           : null;
       }
@@ -720,10 +655,7 @@ export class AuthAccountService {
               email: row.email,
               password: row.password,
               mfaEnabled: row.mfaEnabled,
-              name:
-                `${row.profile?.firstName ?? ''} ${
-                  row.profile?.lastName ?? ''
-                }`.trim() || row.email,
+              name: `${row.profile?.firstName ?? ''} ${row.profile?.lastName ?? ''}`.trim() || row.email,
             }
           : null;
       }
@@ -738,10 +670,7 @@ export class AuthAccountService {
               email: row.email,
               password: row.password,
               mfaEnabled: row.mfaEnabled,
-              name:
-                `${row.profile?.firstName ?? ''} ${
-                  row.profile?.lastName ?? ''
-                }`.trim() || row.email,
+              name: `${row.profile?.firstName ?? ''} ${row.profile?.lastName ?? ''}`.trim() || row.email,
             }
           : null;
       }
@@ -770,10 +699,7 @@ export class AuthAccountService {
               email: row.email,
               password: row.password,
               mfaEnabled: row.mfaEnabled,
-              name:
-                `${row.profile?.firstName ?? ''} ${
-                  row.profile?.lastName ?? ''
-                }`.trim() || row.email,
+              name: `${row.profile?.firstName ?? ''} ${row.profile?.lastName ?? ''}`.trim() || row.email,
             }
           : null;
       }
@@ -789,9 +715,7 @@ export class AuthAccountService {
   ) {
     this.assertNotImpersonating(actor, 'change staff status');
     const company = this.requireCompanyActor(actor);
-    const staff = await this.prisma.staff.findUnique({
-      where: { id: staffId },
-    });
+    const staff = await this.prisma.staff.findUnique({ where: { id: staffId } });
     if (!staff || staff.companyId !== company.id) {
       throw new NotFoundException('Staff not found');
     }
@@ -817,23 +741,13 @@ export class AuthAccountService {
     return this.session.stripSecret(updated);
   }
 
-  private async setMfa(
-    accountType: AccountType,
-    id: string,
-    mfaEnabled: boolean,
-  ) {
+  private async setMfa(accountType: AccountType, id: string, mfaEnabled: boolean) {
     switch (accountType) {
       case AccountType.PLATFORM_STAFF:
-        await this.prisma.platformStaff.update({
-          where: { id },
-          data: { mfaEnabled },
-        });
+        await this.prisma.platformStaff.update({ where: { id }, data: { mfaEnabled } });
         break;
       case AccountType.COMPANY:
-        await this.prisma.company.update({
-          where: { id },
-          data: { mfaEnabled },
-        });
+        await this.prisma.company.update({ where: { id }, data: { mfaEnabled } });
         break;
       case AccountType.STAFF:
         await this.prisma.staff.update({ where: { id }, data: { mfaEnabled } });
@@ -842,71 +756,39 @@ export class AuthAccountService {
         await this.prisma.guard.update({ where: { id }, data: { mfaEnabled } });
         break;
       case AccountType.CLIENT:
-        await this.prisma.client.update({
-          where: { id },
-          data: { mfaEnabled },
-        });
+        await this.prisma.client.update({ where: { id }, data: { mfaEnabled } });
         break;
       case AccountType.CLIENT_STAFF:
-        await this.prisma.clientStaff.update({
-          where: { id },
-          data: { mfaEnabled },
-        });
+        await this.prisma.clientStaff.update({ where: { id }, data: { mfaEnabled } });
         break;
       default:
-        throw new BadRequestException([
-          'MFA is not supported for this account type',
-        ]);
+        throw new BadRequestException(['MFA is not supported for this account type']);
     }
   }
 
-  private async updatePassword(
-    accountType: AccountType,
-    id: string,
-    password: string,
-  ) {
+  private async updatePassword(accountType: AccountType, id: string, password: string) {
     const hashed = await this.hashingService.hash(password);
     switch (accountType) {
       case AccountType.PLATFORM_STAFF:
-        await this.prisma.platformStaff.update({
-          where: { id },
-          data: { password: hashed },
-        });
+        await this.prisma.platformStaff.update({ where: { id }, data: { password: hashed } });
         break;
       case AccountType.COMPANY:
-        await this.prisma.company.update({
-          where: { id },
-          data: { password: hashed },
-        });
+        await this.prisma.company.update({ where: { id }, data: { password: hashed } });
         break;
       case AccountType.STAFF:
-        await this.prisma.staff.update({
-          where: { id },
-          data: { password: hashed },
-        });
+        await this.prisma.staff.update({ where: { id }, data: { password: hashed } });
         break;
       case AccountType.GUARD:
-        await this.prisma.guard.update({
-          where: { id },
-          data: { password: hashed },
-        });
+        await this.prisma.guard.update({ where: { id }, data: { password: hashed } });
         break;
       case AccountType.CLIENT:
-        await this.prisma.client.update({
-          where: { id },
-          data: { password: hashed },
-        });
+        await this.prisma.client.update({ where: { id }, data: { password: hashed } });
         break;
       case AccountType.CLIENT_STAFF:
-        await this.prisma.clientStaff.update({
-          where: { id },
-          data: { password: hashed },
-        });
+        await this.prisma.clientStaff.update({ where: { id }, data: { password: hashed } });
         break;
       default:
-        throw new BadRequestException([
-          'Password reset is not supported for this account type',
-        ]);
+        throw new BadRequestException(['Password reset is not supported for this account type']);
     }
   }
 
@@ -936,25 +818,15 @@ export class AuthAccountService {
     }
   }
 
-  private async assertCurrentPassword(
-    user: AuthenticatedRequestUser,
-    password: string,
-  ) {
+  private async assertCurrentPassword(user: AuthenticatedRequestUser, password: string) {
     const record = await this.findLoginRecord(user.accountType, user.email);
-    if (
-      !record ||
-      !(await this.hashingService.compare(password, record.password))
-    ) {
+    if (!record || !(await this.hashingService.compare(password, record.password))) {
       throw new BadRequestException(['Current password is incorrect']);
     }
   }
 
   private async assertUniqueCompany(email: string, domain: string) {
-    if (
-      await this.prisma.company.findUnique({
-        where: { email: email.toLowerCase() },
-      })
-    ) {
+    if (await this.prisma.company.findUnique({ where: { email: email.toLowerCase() } })) {
       throw new BadRequestException(['Email already registered']);
     }
     if (await this.prisma.company.findUnique({ where: { domain } })) {
@@ -963,11 +835,7 @@ export class AuthAccountService {
   }
 
   private async assertUniqueClient(email: string, phone: string) {
-    if (
-      await this.prisma.client.findUnique({
-        where: { email: email.toLowerCase() },
-      })
-    ) {
+    if (await this.prisma.client.findUnique({ where: { email: email.toLowerCase() } })) {
       throw new BadRequestException(['Email already registered']);
     }
     const existingPhone = await this.prisma.client.findUnique({
@@ -996,17 +864,13 @@ export class AuthAccountService {
   }
 
   private async requireCompany(companyId: string) {
-    const company = await this.prisma.company.findUnique({
-      where: { id: companyId },
-    });
+    const company = await this.prisma.company.findUnique({ where: { id: companyId } });
     if (!company) throw new NotFoundException('Company not found');
     return company;
   }
 
   private async requireOwnedClient(clientId: string, companyId: string) {
-    const client = await this.prisma.client.findUnique({
-      where: { id: clientId },
-    });
+    const client = await this.prisma.client.findUnique({ where: { id: clientId } });
     if (!client || client.companyId !== companyId) {
       throw new NotFoundException('Client not found');
     }
@@ -1015,9 +879,7 @@ export class AuthAccountService {
 
   private requireCompanyActor(user: AuthenticatedRequestUser) {
     if (user.accountType !== AccountType.COMPANY) {
-      throw new ForbiddenException(
-        'Only a company account can perform this action',
-      );
+      throw new ForbiddenException('Only a company account can perform this action');
     }
     return user;
   }
@@ -1028,7 +890,7 @@ export class AuthAccountService {
     }
   }
 
-  public assertPlatformSuperAdmin(user: AuthenticatedRequestUser) {
+  private assertPlatformSuperAdmin(user: AuthenticatedRequestUser) {
     this.assertPlatform(user);
     const role = (user as PlatformStaff).role;
     if (role !== PlatformStaffRole.PLATFORM_SUPER_ADMIN) {
@@ -1036,10 +898,7 @@ export class AuthAccountService {
     }
   }
 
-  private assertNotImpersonating(
-    user: AuthenticatedRequestUser,
-    action: string,
-  ) {
+  private assertNotImpersonating(user: AuthenticatedRequestUser, action: string) {
     if (user.impersonatedBy) {
       throw new ForbiddenException(`Cannot ${action} while impersonating`);
     }
@@ -1073,10 +932,7 @@ export class AuthAccountService {
   }
 
   private async clearLoginBlock(attemptsKey: string, blockedKey: string) {
-    await Promise.all([
-      this.cache.del(attemptsKey),
-      this.cache.del(blockedKey),
-    ]);
+    await Promise.all([this.cache.del(attemptsKey), this.cache.del(blockedKey)]);
   }
 
   private normalizeDomain(domain: string) {
