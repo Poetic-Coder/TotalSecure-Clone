@@ -11,10 +11,12 @@ import { AuthUserInterceptor } from './interceptors/authenticated-account.interc
 import { ImpersonationAuditInterceptor } from './interceptors/impersonation-audit.interceptor';
 import { AuthRateLimitGuard } from './guards/auth-rate-limit.guard';
 import { RolesGuard } from './guards/role.guard';
+import { SubscriptionModule } from '@api/platform/subscription/subscription.module';
 
 @Module({
   imports: [
     ConfigModule,
+    SubscriptionModule,
     HashingModule,
     DatabaseModule,
     SecurityModule,

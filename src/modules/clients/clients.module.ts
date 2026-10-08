@@ -8,7 +8,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
   imports: [
     ConfigModule,
     CoreModule,
-    forwardRef(() => BackgroundModule),
+     forwardRef(() => BackgroundModule),
   ],
   providers: [
    
