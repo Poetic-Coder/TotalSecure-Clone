@@ -19,9 +19,9 @@ import { BullModule } from '@nestjs/bull';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { CoreModule } from 'src/core/core.module';
 import { NetworkModule } from '@modules/network/network.module';
-import { ApiClientModule } from '@modules/clients/clients.module'
 import { ApiKeyMiddleware } from '@common/middlewares/api.middleware';
 import { AuthenticationMiddleware } from '@common/middlewares/auth.middleware';
+import { ApiClientModule } from '@modules/clients/clients.module';
 import {
   APPZONE_WEBHOOK_URL,
   INTERSWITCH_CARD_UPDATE_URL,
