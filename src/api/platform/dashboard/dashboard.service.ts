@@ -1,6 +1,6 @@
 import { PrismaService } from '@database/prisma.service';
 import { Injectable } from '@nestjs/common';
-import { CompanyStatus } from '@prisma/client';
+import { CompanyStatus, SubscriptionStatus } from '@prisma/client';
 
 @Injectable()
 export class DashboardService {
@@ -160,6 +160,9 @@ export class DashboardService {
     const companySubscriptions = await this.prisma.companySubscription.findMany(
       {
         where: {
+          status: {
+            in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING],
+          },
           currentPeriodEnd: {
             gte: today,
             lte: in30Days,
@@ -173,8 +176,6 @@ export class DashboardService {
             select: {
               id: true,
               name: true,
-              email: true,
-              phone: true,
               logo: true,
               status: true,
             },

@@ -22,6 +22,8 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { DashboardService } from './dashboard.service';
+import { PermissionsGuard } from '@api/company/rbac/guards/permissions.guard';
+import { Permissions } from '@common/decorators/role.decorator';
 
 @ApiTags('Client Dashboard')
 @Controller('client/dashboard')
@@ -29,7 +31,7 @@ import { DashboardService } from './dashboard.service';
 @ApiBearerAuth('bearer')
 @ApiSecurity('api-key')
 @UseInterceptors(AuthUserInterceptor)
-@UseGuards(RolesGuard)
+@UseGuards(RolesGuard, PermissionsGuard)
 @Roles(AccountType.CLIENT, AccountType.CLIENT_STAFF)
 @ApiForbiddenResponse({
   description: 'Not authorized as Client or Client Staff',
@@ -199,6 +201,7 @@ export class DashboardController {
       },
     },
   })
+  @Permissions('billing:read')
   @Get('billing')
   async billingSummary(@CurrentUser() user: AuthenticatedRequestUser) {
     return this.service.billingSummary(this.getClientId(user));
@@ -207,7 +210,11 @@ export class DashboardController {
   @ApiOperation({ summary: 'Complete Consolidated Client Dashboard' })
   @Get('overview')
   async overview(@CurrentUser() user: AuthenticatedRequestUser) {
-    return this.service.overview(this.getClientId(user));
+    const hasBillingAccess =
+      user.accountType === AccountType.CLIENT ||
+      (user.permissions && user.permissions.includes('billing:read'));
+
+    return this.service.overview(this.getClientId(user), hasBillingAccess);
   }
 
   @ApiOperation({ summary: 'Site Incident Overview (For Site Managers)' })

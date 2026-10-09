@@ -15,6 +15,8 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { DashboardService } from './dashboard.service';
+import { PermissionsGuard } from '@api/company/rbac/guards/permissions.guard';
+import { Permissions } from '@common/decorators/role.decorator';
 
 @ApiTags('Company Dashboard')
 @Controller('company/dashboard')
@@ -22,8 +24,9 @@ import { DashboardService } from './dashboard.service';
 @ApiBearerAuth('bearer')
 @ApiSecurity('api-key')
 @UseInterceptors(AuthUserInterceptor)
-@UseGuards(RolesGuard)
+@UseGuards(RolesGuard, PermissionsGuard)
 @Roles(AccountType.COMPANY, AccountType.STAFF)
+@Permissions('dashboard:read')
 @ApiForbiddenResponse({ description: 'Not authorized as company or company staff' })
 export class DashboardController {
   constructor(private readonly service: DashboardService) {}

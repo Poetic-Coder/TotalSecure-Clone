@@ -46,10 +46,14 @@ export class DashboardService {
       completedPatrols,
     ] = await Promise.all([
       // Guards deployed to this client
-      this.prisma.guardDeployment.count({
+      this.prisma.guard.count({
         where: {
-          clientId,
-          status: DeploymentStatus.ACTIVE,
+          deployments: {
+            some: {
+              clientId,
+              status: DeploymentStatus.ACTIVE,
+            },
+          },
         },
       }),
 
@@ -160,7 +164,7 @@ export class DashboardService {
     const patrolCompliancePercentage =
       scheduledPatrols > 0
         ? Math.round((completedPatrols / scheduledPatrols) * 100)
-        : 100;
+        : 0;
 
     return {
       guardsOnDuty: {
@@ -262,10 +266,16 @@ export class DashboardService {
             referenceNumber: criticalAlert.referenceNumber,
             title: criticalAlert.title,
             description: criticalAlert.description,
+            type: criticalAlert.type,
             severity: criticalAlert.severity,
             status: criticalAlert.status,
             siteName: criticalAlert.site?.name ?? 'Main Facility',
+            location:
+              criticalAlert.location ||
+              criticalAlert.site?.name ||
+              'On premises',
             occurredAt: criticalAlert.occurredAt,
+            isEscalated: criticalAlert.isEscalated,
           }
         : null,
       incidents: incidents.map((item) => ({
@@ -365,7 +375,7 @@ export class DashboardService {
   /**
    * 4. Site-by-Site Operational Overview
    */
-    /**
+  /**
    * 4. Site-by-Site Operational Overview
    */
   public async sites(clientId: string) {
@@ -545,12 +555,13 @@ export class DashboardService {
   /**
    * 6. Consolidated Dashboard (One-stop fetch for Frontend)
    */
-  public async overview(clientId: string) {
+  public async overview(clientId: string, hasBillingAccess: boolean = false) {
     const [summary, incidentsData, gateActivity, billing] = await Promise.all([
       this.summary(clientId),
       this.recentIncidents(clientId),
       this.gateActivity(clientId),
-      this.billingSummary(clientId),
+      // Only run the heavy billing query if they have access
+      hasBillingAccess ? this.billingSummary(clientId) : Promise.resolve(null),
     ]);
 
     return {
@@ -566,36 +577,73 @@ export class DashboardService {
   /**
    * 7. Site only Incidents Overview (For Site Managers)
    */
-  public async siteIncidentsOverview(clientId: string, siteId: string) {
+   public async siteIncidentsOverview(clientId: string, siteId: string) {
+    const openStatuses = [
+      IncidentStatus.REPORTED,
+      IncidentStatus.UNDER_REVIEW,
+      IncidentStatus.ESCALATED,
+      IncidentStatus.INVESTIGATING,
+    ];
+
     const [openCount, criticalAlert, incidents] = await Promise.all([
       this.prisma.incident.count({
         where: {
           OR: [{ clientId }, { site: { clientId } }],
           siteId,
-          status: IncidentStatus.REPORTED,
+          status: { in: openStatuses },
         },
       }),
-      this.prisma.incident.count({
+      // Use findFirst for the top banner alert
+      this.prisma.incident.findFirst({
         where: {
           OR: [{ clientId }, { site: { clientId } }],
           siteId,
           severity: IncidentSeverity.CRITICAL,
+          status: { in: openStatuses },
         },
+        orderBy: { occurredAt: 'desc' },
+        include: { site: { select: { name: true } } },
       }),
       this.prisma.incident.findMany({
         where: {
           OR: [{ clientId }, { site: { clientId } }],
           siteId,
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { occurredAt: 'desc' },
         take: 5,
+        include: { site: { select: { name: true } } },
       }),
     ]);
 
     return {
       openCount,
-      criticalAlert,
-      incidents,
+      criticalAlert: criticalAlert
+        ? {
+            id: criticalAlert.id,
+            referenceNumber: criticalAlert.referenceNumber,
+            title: criticalAlert.title,
+            description: criticalAlert.description,
+            type: criticalAlert.type,
+            severity: criticalAlert.severity,
+            status: criticalAlert.status,
+            siteName: criticalAlert.site?.name ?? 'Main Facility',
+            location: criticalAlert.location || criticalAlert.site?.name || 'On premises',
+            occurredAt: criticalAlert.occurredAt,
+            isEscalated: criticalAlert.isEscalated,
+          }
+        : null,
+      incidents: incidents.map((item) => ({
+        id: item.id,
+        referenceNumber: item.referenceNumber,
+        title: item.title,
+        type: item.type,
+        severity: item.severity,
+        status: item.status,
+        siteName: item.site?.name ?? 'Main Site',
+        location: item.location || item.site?.name || 'On premises',
+        occurredAt: item.occurredAt,
+        isEscalated: item.isEscalated,
+      })),
     };
   }
 }

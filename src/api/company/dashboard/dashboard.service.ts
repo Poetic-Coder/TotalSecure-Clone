@@ -261,6 +261,7 @@ export class DashboardService {
             referenceNumber: criticalAlert.referenceNumber,
             title: criticalAlert.title,
             description: criticalAlert.description,
+            type: criticalAlert.type,
             severity: criticalAlert.severity,
             status: criticalAlert.status,
             location:
@@ -268,6 +269,9 @@ export class DashboardService {
                 .filter(Boolean)
                 .join(' — ') || 'Headquarters',
             occurredAt: criticalAlert.occurredAt,
+            siteName: criticalAlert.site?.name ?? null,
+            clientName: criticalAlert.client?.name ?? null,
+            isEscalated: criticalAlert.isEscalated,
           }
         : null,
       incidents: formattedIncidents,
@@ -315,8 +319,8 @@ export class DashboardService {
           occurredAt: true,
           resolvedAt: true,
         },
-        take: 50,
       }),
+
       // Visitor processing accuracy (non-rejected visits)
       this.prisma.visitorVisit.count({
         where: {
@@ -364,8 +368,9 @@ export class DashboardService {
     if (resolvedIncidents.length > 0) {
       const totalHours = resolvedIncidents.reduce((acc, inc) => {
         const diffMs = inc.resolvedAt!.getTime() - inc.occurredAt.getTime();
-        return acc + Math.max(diffMs / (1000 * 60 * 60), 0.1);
+        return acc + diffMs / (1000 * 60 * 60);
       }, 0);
+
       responseTimeHours = parseFloat(
         (totalHours / resolvedIncidents.length).toFixed(1),
       );

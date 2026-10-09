@@ -18,6 +18,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { DashboardService } from './dashboard.service';
+import { PlatformSuperAdminGuard } from '@api/common/auth/guards/platform-superadmin.guard';
 
 @ApiTags('Platform Dashboard')
 @Controller('platform/dashboard')
@@ -25,7 +26,7 @@ import { DashboardService } from './dashboard.service';
 @ApiBearerAuth('bearer')
 @ApiSecurity('api-key')
 @UseInterceptors(AuthUserInterceptor)
-@UseGuards(RolesGuard)
+@UseGuards(RolesGuard, PlatformSuperAdminGuard)
 @Roles(AccountType.PLATFORM_STAFF)
 @ApiForbiddenResponse({ description: 'Not platform staff / not super admin' })
 export class DashboardController {
@@ -135,8 +136,6 @@ export class DashboardController {
           company: {
             id: 'cm1a2b3c4d5e6f7g8h9',
             name: 'Apex Security Solutions',
-            email: 'admin@apexsecurity.com',
-            phone: '+2348012345678',
             logo: 'https://res.cloudinary.com/example/logo.png',
             status: 'ACTIVE',
           },
