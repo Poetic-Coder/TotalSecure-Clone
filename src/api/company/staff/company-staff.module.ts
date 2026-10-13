@@ -6,9 +6,10 @@ import { StaffService } from './services/staff.service';
 import { ProfileService } from './services/staff-profile.service';
 import { StaffRepository } from './repositories/staff.repository';
 import { StaffProfileRepository } from './repositories/staff-profile.repository';
+import { CommonAuthModule } from '@api/common/auth/common-auth.module';
 
 @Module({
-  imports: [DatabaseModule, HashingModule],
+  imports: [DatabaseModule, HashingModule, CommonAuthModule],
   controllers: [StaffController],
   providers: [
     StaffService,

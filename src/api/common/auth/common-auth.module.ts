@@ -11,6 +11,7 @@ import { AuthUserInterceptor } from './interceptors/authenticated-account.interc
 import { ImpersonationAuditInterceptor } from './interceptors/impersonation-audit.interceptor';
 import { AuthRateLimitGuard } from './guards/auth-rate-limit.guard';
 import { RolesGuard } from './guards/role.guard';
+import { PlatformSuperAdminGuard } from './guards/platform-superadmin.guard';
 
 @Module({
   imports: [
@@ -33,12 +34,14 @@ import { RolesGuard } from './guards/role.guard';
     },
   ],
   exports: [
+    SecurityModule,
     AuthSessionService,
     AuthAccountService,
     AuthUserInterceptor,
     AuthRateLimitGuard,
     ImpersonationAuditInterceptor,
     RolesGuard,
+    PlatformSuperAdminGuard
   ],
 })
 export class CommonAuthModule {}

@@ -116,6 +116,7 @@ export default function SwaggerInit(
 
   const document = SwaggerModule.createDocument(app, config, {
     include: modules,
+    deepScanRoutes: true,
     operationIdFactory: (controllerKey, methodKey) =>
       `${controllerKey}_${methodKey}`,
   });
